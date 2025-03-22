@@ -33,8 +33,18 @@ struct SegmentDescriptor {
     // Next 16-bit (Bit 32 to 47)
     uint8_t base_mid;
     uint8_t type_bit   : 4;
-    uint8_t non_system : 1;
-    // TODO : Continue SegmentDescriptor definition
+    uint8_t descriptor_type : 1;
+    uint8_t descriptor_privilege_level : 2;
+    uint8_t segment_present : 1;
+
+    uint8_t segment_limit_high : 4;
+
+    uint8_t avl : 1;
+    uint8_t long_mode : 1;
+    uint8_t default_operation_size : 1;
+    uint8_t granularity : 1;
+
+    uint8_t base_high;
 
 } __attribute__((packed));
 
