@@ -2,11 +2,12 @@
 ASM           = nasm
 LIN           = ld
 CC            = gcc
+MKISO         = mkisofs
 
 # Directory
 SOURCE_FOLDER = src
 OUTPUT_FOLDER = bin
-ISO_NAME      = OS2025
+ISO_NAME      = OSusumeNanDesuka
 
 # Flags
 WARNING_CFLAG = -Wall -Wextra -Werror
@@ -18,11 +19,13 @@ LFLAGS        = -T $(SOURCE_FOLDER)/linker.ld -melf_i386
 
 
 run: all
-	@qemu-system-i386 -s -S -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
+	@qemu-system-i386 -s -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
 all: build
 build: iso
 clean:
-	rm -rf *.o *.iso $(OUTPUT_FOLDER)/kernel
+# @rm -rf *.o *.iso $(OUTPUT_FOLDER)/kernel
+	@rm -rf $(OUTPUT_FOLDER)/*.o $(OUTPUT_FOLDER)/*.iso $(OUTPUT_FOLDER)/kernel
+	@rm -rf $(OUTPUT_FOLDER)/iso
 
 
 
@@ -32,7 +35,7 @@ kernel:
 	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
 	@$(LIN) $(LFLAGS) bin/*.o -o $(OUTPUT_FOLDER)/kernel
 	@echo Linking object files and generate elf32...
-	@rm -f *.o
+# @rm -f *.o
 
 iso: kernel
 	@mkdir -p $(OUTPUT_FOLDER)/iso/boot/grub
@@ -40,7 +43,18 @@ iso: kernel
 	@cp other/grub1                 $(OUTPUT_FOLDER)/iso/boot/grub/
 	@cp $(SOURCE_FOLDER)/menu.lst   $(OUTPUT_FOLDER)/iso/boot/grub/
 # Below is added
-	@$(MKISO) -o $(OUTPUT_FOLDER)/OSusumeNanDesuka.iso $(OUTPUT_FOLDER)/iso
+	@cd $(OUTPUT_FOLDER) && $(MKISO) -R               \
+		-b boot/grub/grub1                    \
+		-no-emul-boot                             \
+		-boot-load-size 4                         \
+		-A os                                     \
+		-input-charset utf8                       \
+		-quiet                                    \
+		-boot-info-table                          \
+		-o $(ISO_NAME).iso iso
 	@echo ISO image created at $(OUTPUT_FOLDER)/OSusumeNanDesuka.iso
 # Above is added
-	@rm -r $(OUTPUT_FOLDER)/iso/
+# @rm -r $(OUTPUT_FOLDER)/iso/
+	@echo "ISO Structure:"
+	@ls -R $(OUTPUT_FOLDER)/iso
+
