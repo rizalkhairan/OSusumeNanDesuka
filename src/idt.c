@@ -18,10 +18,17 @@ void initialize_idt(void) {
      * Segment: GDT_KERNEL_CODE_SEGMENT_SELECTOR
      * Privilege: 0
      */
-    for(int i=0;i<ISR_STUB_TABLE_LIMIT;i++){
-        set_interrupt_gate(i, isr_stub_table[i], GDT_KERNEL_CODE_SEGMENT_SELECTOR, 0);
+    // Loop through ISR stubs and set up IDT entries
+    for (int i = 0; i < ISR_STUB_TABLE_LIMIT; i++) {
+        set_interrupt_gate(
+            i,                      // Vector
+            isr_stub_table[i],      // Handler Address
+            GDT_KERNEL_CODE_SEGMENT_SELECTOR, // Segment
+            0                       // Privilege (0 = kernel)
+        );
     }
 
+    // Load IDT and enable interrupts
     __asm__ volatile("lidt %0" : : "m"(_idt_idtr));
     __asm__ volatile("sti");
 }
@@ -36,20 +43,21 @@ void set_interrupt_gate(
     // TODO : Set handler offset, privilege & segment
     // Use &-bitmask, bitshift, and casting for offset 
 
+    // Split handler address into low/high 16-bit parts
     uint32_t handler_offset = (uint32_t)handler_address;
     idt_int_gate->offset_low = handler_offset & 0xFFFF;        // Lower 16 bits
     idt_int_gate->offset_high = (handler_offset >> 16) & 0xFFFF; // Upper 16 bits
 
-     // Set segment selector (from GDT)
-     idt_int_gate->segment = gdt_seg_selector;
+    // Set segment selector (from GDT)
+    idt_int_gate->segment = gdt_seg_selector;
     
-     // Set privilege level (DPL)
-     idt_int_gate->dpl = privilege;
+    // Set privilege level (DPL)
+    idt_int_gate->dpl = privilege;
 
     // Target system 32-bit and flag this as valid interrupt gate
     idt_int_gate->_r_bit_1    = INTERRUPT_GATE_R_BIT_1;
     idt_int_gate->_r_bit_2    = INTERRUPT_GATE_R_BIT_2;
     idt_int_gate->_r_bit_3    = INTERRUPT_GATE_R_BIT_3;
-    idt_int_gate->gate_32     = 1;
-    idt_int_gate->valid_bit   = 1;
+    idt_int_gate->gate_32     = 1;    // 32-bit gate
+    idt_int_gate->valid_bit   = 1;    // Mark as active
 }
