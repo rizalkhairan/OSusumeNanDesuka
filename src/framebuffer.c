@@ -18,5 +18,10 @@ void framebuffer_write(uint8_t row, uint8_t col, char c, uint8_t fg, uint8_t bg)
 }
 
 void framebuffer_clear(void) {
-    // TODO : Implement
+    for (uint32_t i = 0; i < FRAMEBUFFER_ROW_LENGTH * FRAMEBUFFER_COL_LENGTH; i++) {
+        FRAMEBUFFER_MEMORY_OFFSET[i * 2] = 0x00; // Empty character
+        FRAMEBUFFER_MEMORY_OFFSET[i * 2 + 1] = 0x07; // Gray character & black background
+    }
+
+    // not required but maybe set_cursor here?
 }

@@ -19,5 +19,7 @@ void kernel_setup(void) {
         framebuffer_write(5, 9, 'l', 0x0F, 0x00);
         framebuffer_write(5, 10, 'd', 0x0F, 0x00);
         framebuffer_write(5, 11, '!', 0x0F, 0x00);
+
+        framebuffer_clear();
     }
 }

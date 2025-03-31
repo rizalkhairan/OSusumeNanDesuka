@@ -9,6 +9,7 @@
 #define CURSOR_PORT_CMD    0x03D4
 #define CURSOR_PORT_DATA   0x03D5
 #define FRAMEBUFFER_ROW_LENGTH 80
+#define FRAMEBUFFER_COL_LENGTH 25
 
 /**
  * Terminal framebuffer
