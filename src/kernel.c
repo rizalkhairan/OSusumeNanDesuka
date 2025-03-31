@@ -1,8 +1,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "header/cpu/gdt.h"
+#include "header/interrupt/interrupt.h"
+#include "header/interrupt/idt.h"
 #include "header/kernel-entrypoint.h"
 
+// Kernel setup untuk tes interrupt
 void kernel_setup(void) {
     load_gdt(&_gdt_gdtr);
     pic_remap();

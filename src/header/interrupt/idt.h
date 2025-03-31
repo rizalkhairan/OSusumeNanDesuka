@@ -33,8 +33,15 @@ extern struct IDTR _idt_idtr;
 struct IDTGate {
     // First 32-bit (Bit 0 to 31)
     uint16_t offset_low;
-
-    // TODO : Implement
+    uint16_t segment;
+    uint8_t _reserved : 5;
+    uint8_t _r_bit_1 : 3;
+    uint8_t _r_bit_2 : 3;
+    uint8_t gate_32 : 1;
+    uint8_t _r_bit_3 : 1;
+    uint8_t dpl: 2;
+    uint8_t valid_bit : 1;
+    uint16_t offset_high;
 } __attribute__((packed));
 
 /**
@@ -43,8 +50,9 @@ struct IDTGate {
  *
  * ...
  */
-// TODO : Implement
-// ...
+struct IDT{
+    struct IDTGate table[IDT_MAX_ENTRY_COUNT];
+} __attribute__((packed));
 
 /**
  * IDTR, carrying information where's the IDT located and size.
@@ -52,10 +60,10 @@ struct IDTGate {
  *
  * ...
  */
-// TODO : Implement
-// ...
-
-
+struct IDTR{
+    uint16_t size;
+    struct IDT *idt_location;
+} __attribute__((packed));
 
 /**
  * Set IDTGate with proper interrupt handler values.
