@@ -2,7 +2,7 @@
 ASM           = nasm
 LIN           = ld
 CC            = gcc
-MKISO         = mkisofs
+MKISO         = genisoimage
 
 # Directory
 SOURCE_FOLDER = src
