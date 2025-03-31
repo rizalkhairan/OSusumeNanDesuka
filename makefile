@@ -10,7 +10,7 @@ OUTPUT_FOLDER = bin
 ISO_NAME      = OSusumeNanDesuka
 
 # Flags
-WARNING_CFLAG = -Wall -Wextra -Werror
+WARNING_CFLAG = -Wall -Wextra -Werror -w
 DEBUG_CFLAG   = -fshort-wchar -g
 STRIP_CFLAG   = -nostdlib -fno-stack-protector -nostartfiles -nodefaultlibs -ffreestanding
 CFLAGS        = $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) -m32 -c -I$(SOURCE_FOLDER)
@@ -33,6 +33,7 @@ kernel: gdt
 	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/kernel-entrypoint.s -o $(OUTPUT_FOLDER)/kernel-entrypoint.o
 # TODO: Compile C file with CFLAGS
 	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
+	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/framebuffer.c $(OUTPUT_FOLDER)/framebuffer.o
 	@$(LIN) $(LFLAGS) bin/*.o -o $(OUTPUT_FOLDER)/kernel
 	@echo Linking object files and generate elf32...
 # @rm -f *.o
