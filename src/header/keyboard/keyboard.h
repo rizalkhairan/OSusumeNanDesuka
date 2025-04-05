@@ -15,10 +15,6 @@
 #define EXTENDED_SCANCODE_BYTE 0xE0
 
 // Tambahan
-#define KEY_UP    0x01
-#define KEY_DOWN  0x02
-#define KEY_LEFT  0x03
-#define KEY_RIGHT 0x04
 #define LSHIFT 0x2A
 #define RSHIFT 0x36
 ////

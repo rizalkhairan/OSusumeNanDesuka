@@ -70,20 +70,20 @@ void keyboard_isr(void) {
             keyboard_state.read_extended_mode = false;
             
             // Check for arrow keys
-            switch(scancode) {
-                case EXT_SCANCODE_UP:
-                    keyboard_state.keyboard_buffer = KEY_UP;
-                    break;
-                case EXT_SCANCODE_DOWN:
-                    keyboard_state.keyboard_buffer = KEY_DOWN;
-                    break;
-                case EXT_SCANCODE_LEFT:
-                    keyboard_state.keyboard_buffer = KEY_LEFT;
-                    break;
-                case EXT_SCANCODE_RIGHT:
-                    keyboard_state.keyboard_buffer = KEY_RIGHT;
-                    break;
-            }
+            // switch(scancode) {
+            //     case EXT_SCANCODE_UP:
+            //         keyboard_state.keyboard_buffer = KEY_UP;
+            //         break;
+            //     case EXT_SCANCODE_DOWN:
+            //         keyboard_state.keyboard_buffer = KEY_DOWN;
+            //         break;
+            //     case EXT_SCANCODE_LEFT:
+            //         keyboard_state.keyboard_buffer = KEY_LEFT;
+            //         break;
+            //     case EXT_SCANCODE_RIGHT:
+            //         keyboard_state.keyboard_buffer = KEY_RIGHT;
+            //         break;
+            // }
             return;
         }
         

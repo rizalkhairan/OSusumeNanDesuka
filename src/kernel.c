@@ -22,12 +22,23 @@ void kernel_setup(void) {
         get_keyboard_buffer(&c);
         if (c) {
             // Tulis karakter biasa
-            framebuffer_write(row, col, c, 0xF, 0x0);
-            if (++col >= FRAMEBUFFER_ROW_LENGTH) {
+            if(c == '\n'){
+                row++;
                 col = 0;
-                if (++row >= FRAMEBUFFER_COL_LENGTH) row = 0;
+            } else if(c == '\b'){
+                if(col>0){
+                    col--;
+                    framebuffer_write(row, col, ' ', 0xF, 0x0);
+                }
             }
-           framebuffer_set_cursor(row, col);
+            else{
+                framebuffer_write(row, col, c, 0xF, 0x0);
+                if (++col >= FRAMEBUFFER_ROW_LENGTH) {
+                    col = 0;
+                    if (++row >= FRAMEBUFFER_COL_LENGTH) row = 0;
+                }
+            }
+            framebuffer_set_cursor(row, col);
         }
     }
 }
