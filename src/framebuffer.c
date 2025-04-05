@@ -26,10 +26,9 @@ void framebuffer_write(uint8_t row, uint8_t col, char c, uint8_t fg, uint8_t bg)
 }
 
 void framebuffer_clear(void) {
-    for (uint32_t i = 0; i < FRAMEBUFFER_ROW_LENGTH * FRAMEBUFFER_COL_LENGTH; i++) {
-        FRAMEBUFFER_MEMORY_OFFSET[i * 2] = 0x00; // Empty character
-        FRAMEBUFFER_MEMORY_OFFSET[i * 2 + 1] = 0x07; // Gray character & black background
+    uint8_t *framebuffer_ptr = FRAMEBUFFER_MEMORY_OFFSET;
+    for (uint16_t i = 0; i < FRAMEBUFFER_ROW_LENGTH * FRAMEBUFFER_COL_LENGTH; i++) {
+        *framebuffer_ptr++ = 0x00; // Empty character
+        *framebuffer_ptr++ = 0x07; // Gray character & black background
     }
-
-    // framebuffer_set_cursor(0, 0); // Reset kursor ke (0, 0)
 }
