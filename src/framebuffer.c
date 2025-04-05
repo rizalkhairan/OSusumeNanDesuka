@@ -6,7 +6,15 @@
 #include "header/cpu/portio.h"
 
 void framebuffer_set_cursor(uint8_t r, uint8_t c) {
-    // TODO : Implement
+    uint16_t pos = r * FRAMEBUFFER_ROW_LENGTH + c;
+    
+    // Send low byte of cursor position to port 0x3D4
+    out(0x3D4, 0x0F);
+    out(0x3D5, (uint8_t)(pos & 0xFF));
+    
+    // Send high byte of cursor position to port 0x3D4
+    out(0x3D4, 0x0E);
+    out(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
 }
 
 void framebuffer_write(uint8_t row, uint8_t col, char c, uint8_t fg, uint8_t bg) {
@@ -23,5 +31,5 @@ void framebuffer_clear(void) {
         FRAMEBUFFER_MEMORY_OFFSET[i * 2 + 1] = 0x07; // Gray character & black background
     }
 
-    // not required but maybe set_cursor here?
+    // framebuffer_set_cursor(0, 0); // Reset kursor ke (0, 0)
 }
