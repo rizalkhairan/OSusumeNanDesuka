@@ -14,6 +14,15 @@
 #define KEYBOARD_DATA_PORT     0x60
 #define EXTENDED_SCANCODE_BYTE 0xE0
 
+// Tambahan
+#define KEY_UP    0x01
+#define KEY_DOWN  0x02
+#define KEY_LEFT  0x03
+#define KEY_RIGHT 0x04
+#define LSHIFT 0x2A
+#define RSHIFT 0x36
+////
+
 /**
  * keyboard_scancode_1_to_ascii_map[256], Convert scancode values that correspond to ASCII printables
  * How to use this array: ascii_char = k[scancode]
@@ -32,6 +41,7 @@ extern const char keyboard_scancode_1_to_ascii_map[256];
 struct KeyboardDriverState {
     bool read_extended_mode;
     bool keyboard_input_on;
+    bool is_shift_pressed;
     char keyboard_buffer;
 } __attribute((packed));
 
