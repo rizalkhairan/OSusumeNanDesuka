@@ -12,33 +12,14 @@ void kernel_setup(void) {
     pic_remap();
     initialize_idt();
     activate_keyboard_interrupt();
-    framebuffer_clear();
-    framebuffer_set_cursor(0, 0);
-   
-    int row = 0, col = 0;
+    terminal_initialize();
     keyboard_state_activate();
+
     while (true) {
         char c;
         get_keyboard_buffer(&c);
         if (c) {
-            // Tulis karakter biasa
-            if(c == '\n'){
-                row++;
-                col = 0;
-            } else if(c == '\b'){
-                if(col>0){
-                    col--;
-                    framebuffer_write(row, col, ' ', 0xF, 0x0);
-                }
-            }
-            else{
-                framebuffer_write(row, col, c, 0xF, 0x0);
-                if (++col >= FRAMEBUFFER_ROW_LENGTH) {
-                    col = 0;
-                    if (++row >= FRAMEBUFFER_COL_LENGTH) row = 0;
-                }
-            }
-            framebuffer_set_cursor(row, col);
+            terminal_handle_input(c);
         }
     }
 }
