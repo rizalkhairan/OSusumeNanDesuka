@@ -15,8 +15,15 @@
 #define EXTENDED_SCANCODE_BYTE 0xE0
 
 // Tambahan
-#define LSHIFT 0x2A
-#define RSHIFT 0x36
+#define L_SHIFT 0x2A
+#define R_SHIFT 0x36
+
+#define L_CTRL 0x1D
+#define L_ALT 0x38
+
+#define CAPS_LOCK 0x3A
+
+#define KEY_RELEASE(scancode) ((scancode) + 0x80)
 ////
 
 /**
@@ -37,7 +44,14 @@ extern const char keyboard_scancode_1_to_ascii_map[256];
 struct KeyboardDriverState {
     bool read_extended_mode;
     bool keyboard_input_on;
+
     bool is_shift_pressed;
+    // below is added
+    bool is_ctrl_pressed;
+    bool is_alt_pressed;
+    bool is_caps_lock_on;
+    // above is added
+
     char keyboard_buffer;
 } __attribute((packed));
 

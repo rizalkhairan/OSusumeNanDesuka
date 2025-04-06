@@ -5,7 +5,12 @@
 struct KeyboardDriverState keyboard_state = {
     .read_extended_mode = false,
     .keyboard_input_on = false,
+
     .is_shift_pressed = false,
+    .is_ctrl_pressed = false,
+    .is_alt_pressed = false,
+    .is_caps_lock_on = false,
+
     .keyboard_buffer = 0
 };
 
@@ -56,13 +61,29 @@ void keyboard_isr(void) {
     // Only process if keyboard input is active
     if (keyboard_state.keyboard_input_on) {
         // Handle extended scancode prefix
-        if (scancode == EXTENDED_SCANCODE_BYTE) {
+        /** 
+         * @todo 
+         * Clean the conditionals below
+         * - Staryo40
+         */
+        if (scancode == EXTENDED_SCANCODE_BYTE) { 
             keyboard_state.read_extended_mode = true;
+            pic_ack(IRQ_KEYBOARD);
             return;
-        } else if(scancode == LSHIFT || scancode == RSHIFT){
+        } else if(scancode == L_SHIFT || scancode == R_SHIFT){
             keyboard_state.is_shift_pressed = true;
-        } else if(scancode == LSHIFT + 0x80 || scancode == RSHIFT + 0x80){
+        } else if(scancode == KEY_RELEASE(L_SHIFT) || scancode == KEY_RELEASE(R_SHIFT)){
             keyboard_state.is_shift_pressed = false;
+        } else if (scancode == CAPS_LOCK){
+            keyboard_state.is_caps_lock_on = !keyboard_state.is_caps_lock_on;
+        } else if (scancode == L_CTRL){
+            keyboard_state.is_ctrl_pressed = true;
+        } else if (scancode == KEY_RELEASE(L_CTRL)){
+            keyboard_state.is_ctrl_pressed = false;
+        } else if (scancode == L_ALT){
+            keyboard_state.is_alt_pressed = true;
+        } else if (scancode == KEY_RELEASE(L_ALT)){
+            keyboard_state.is_alt_pressed = false;
         }
 
         // Handle extended scancodes (arrow keys)
@@ -91,7 +112,13 @@ void keyboard_isr(void) {
         if (keyboard_state.is_shift_pressed) {
             char ascii = keyboard_scancode_to_ascii_map_shift[scancode];
             keyboard_state.keyboard_buffer = ascii;
-        } else{
+        } else if (keyboard_state.is_caps_lock_on){
+            char ascii = keyboard_scancode_1_to_ascii_map[scancode];
+            if (ascii >= 'a' && ascii <= 'z') {
+                ascii = ascii - 32;
+            }
+            keyboard_state.keyboard_buffer = ascii;
+        }else{ // All default behaviors
             char ascii = keyboard_scancode_1_to_ascii_map[scancode];
             keyboard_state.keyboard_buffer = ascii;
         }
