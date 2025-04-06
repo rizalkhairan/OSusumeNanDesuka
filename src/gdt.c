@@ -7,7 +7,7 @@
  */
 struct GlobalDescriptorTable global_descriptor_table = {
     .table = {
-        {
+        { // Null Descriptor
             .segment_low = 0,
             .base_low = 0,
             .base_mid = 0,
@@ -22,7 +22,7 @@ struct GlobalDescriptorTable global_descriptor_table = {
             .granularity = 0,
             .base_high = 0
         },
-        {
+        { // Kernel Code Segement
             .segment_low = 0xFFFF,       // Limit (low)
             .base_low = 0x0000,          // Base (low)
             .base_mid = 0x00,            // Base (middle)
@@ -37,7 +37,7 @@ struct GlobalDescriptorTable global_descriptor_table = {
             .granularity = 1,            // 4KB granularity
             .base_high = 0x00            // Base (high)
         },
-        {
+        { // Kernel Data Segment
             .segment_low = 0xFFFF,       // Limit (low)
             .base_low = 0x0000,          // Base (low)
             .base_mid = 0x00,            // Base (middle)
