@@ -5,7 +5,12 @@
 struct KeyboardDriverState keyboard_state = {
     .read_extended_mode = false,
     .keyboard_input_on = false,
+
     .is_shift_pressed = false,
+    .is_ctrl_pressed = false,
+    .is_alt_pressed = false,
+    .is_caps_lock_on = false,
+
     .keyboard_buffer = 0
 };
 
@@ -56,47 +61,75 @@ void keyboard_isr(void) {
     // Only process if keyboard input is active
     if (keyboard_state.keyboard_input_on) {
         // Handle extended scancode prefix
-        if (scancode == EXTENDED_SCANCODE_BYTE) {
+        if (scancode == EXTENDED_SCANCODE_BYTE) { 
             keyboard_state.read_extended_mode = true;
+            pic_ack(IRQ_KEYBOARD);
             return;
-        } else if(scancode == LSHIFT || scancode == RSHIFT){
-            keyboard_state.is_shift_pressed = true;
-        } else if(scancode == LSHIFT + 0x80 || scancode == RSHIFT + 0x80){
-            keyboard_state.is_shift_pressed = false;
         }
 
-        // Handle extended scancodes (arrow keys)
+        // Modifier keys
+        switch (scancode) {
+            case L_SHIFT:
+            case R_SHIFT:
+                keyboard_state.is_shift_pressed = true;
+                break;
+            case KEY_RELEASE(L_SHIFT):
+            case KEY_RELEASE(R_SHIFT):
+                keyboard_state.is_shift_pressed = false;
+                break;
+            case CAPS_LOCK:
+                keyboard_state.is_caps_lock_on = !keyboard_state.is_caps_lock_on;
+                break;
+            case L_CTRL:
+                keyboard_state.is_ctrl_pressed = true;
+                break;
+            case KEY_RELEASE(L_CTRL):
+                keyboard_state.is_ctrl_pressed = false;
+                break;
+            case L_ALT:
+                keyboard_state.is_alt_pressed = true;
+                break;
+            case KEY_RELEASE(L_ALT):
+                keyboard_state.is_alt_pressed = false;
+                break;
+        }
+
+        // Handle extended scancodes
         if (keyboard_state.read_extended_mode) {
             keyboard_state.read_extended_mode = false;
-            
-            // Check for arrow keys
-            // switch(scancode) {
-            //     case EXT_SCANCODE_UP:
-            //         keyboard_state.keyboard_buffer = KEY_UP;
-            //         break;
-            //     case EXT_SCANCODE_DOWN:
-            //         keyboard_state.keyboard_buffer = KEY_DOWN;
-            //         break;
-            //     case EXT_SCANCODE_LEFT:
-            //         keyboard_state.keyboard_buffer = KEY_LEFT;
-            //         break;
-            //     case EXT_SCANCODE_RIGHT:
-            //         keyboard_state.keyboard_buffer = KEY_RIGHT;
-            //         break;
-            // }
+
+            switch (scancode) {
+                case EXT_SCANCODE_UP:
+                    keyboard_state.keyboard_buffer = KEY_UP;
+                    break;
+                case EXT_SCANCODE_DOWN:
+                    keyboard_state.keyboard_buffer = KEY_DOWN;
+                    break;
+                case EXT_SCANCODE_LEFT:
+                    keyboard_state.keyboard_buffer = KEY_LEFT;
+                    break;
+                case EXT_SCANCODE_RIGHT:
+                    keyboard_state.keyboard_buffer = KEY_RIGHT;
+                    break;
+                default:
+                    keyboard_state.keyboard_buffer = 0;
+            }
+
+            pic_ack(IRQ_KEYBOARD); 
             return;
         }
-        
-        // Convert scancode to ASCII using the mapper
+
+        char ascii = 0;
         if (keyboard_state.is_shift_pressed) {
-            char ascii = keyboard_scancode_to_ascii_map_shift[scancode];
-            keyboard_state.keyboard_buffer = ascii;
-        } else{
-            char ascii = keyboard_scancode_1_to_ascii_map[scancode];
-            keyboard_state.keyboard_buffer = ascii;
+            ascii = keyboard_scancode_to_ascii_map_shift[scancode];
+        } else {
+            ascii = keyboard_scancode_1_to_ascii_map[scancode];
+            if (keyboard_state.is_caps_lock_on && ascii >= 'a' && ascii <= 'z') {
+                ascii = ascii - 'a' + 'A';
+            }
         }
 
-        
+        keyboard_state.keyboard_buffer = ascii;
     }
     pic_ack(IRQ_KEYBOARD);
 }
