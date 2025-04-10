@@ -22,11 +22,11 @@ void kernel_setup(void) {
     write_blocks(&b, 17, 1);
     while (true);
 
-    while (true) {
-        char c;
-        get_keyboard_buffer(&c);
-        if (c) {
-            terminal_handle_input(c);
-        }
-    }
+    // while (true) {
+    //     char c;
+    //     get_keyboard_buffer(&c);
+    //     if (c) {
+    //         terminal_handle_input(c);
+    //     }
+    // }
 }
