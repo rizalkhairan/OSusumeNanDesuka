@@ -8,6 +8,7 @@
 #include "header/keyboard/keyboard.h"
 #include "header/terminal/terminal.h"
 #include "header/filesystem/disk.h"
+#include "header/filesystem/ext2.h"
 
 void kernel_setup(void) {
     load_gdt(&_gdt_gdtr);
@@ -17,9 +18,11 @@ void kernel_setup(void) {
     terminal_initialize();
     keyboard_state_activate();
 
-    struct BlockBuffer b;
-    for (int i = 0; i < 512; i++) b.buf[i] = i % 16;
-    write_blocks(&b, 17, 1);
+    initialize_filesystem_ext2();
+    
+    // struct BlockBuffer b;
+    // for (int i = 0; i < 512; i++) b.buf[i] = i % 16;
+    // write_blocks(&b, 17, 1);
     while (true);
 
     // while (true) {
