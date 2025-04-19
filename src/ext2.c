@@ -93,7 +93,7 @@ struct EXT2Superblock sb = {            //TODO: recheck values...
     .s_free_blocks_count = BLOCKS_PER_GROUP*GROUPS_COUNT - 10,
     .s_free_inodes_count = INODES_PER_GROUP*GROUPS_COUNT - 1,
     .s_first_data_block = 1,
-    .s_first_ino = 1,
+    .s_first_ino = 2,
     .s_blocks_per_group = BLOCKS_PER_GROUP,
     .s_frags_per_group = BLOCKS_PER_GROUP,
     .s_inodes_per_group = INODES_PER_GROUP,
@@ -142,16 +142,26 @@ void create_ext2(void){
             .bg_inode_table = 5 + (i*BLOCKS_PER_GROUP),
             .bg_free_blocks_count = BLOCKS_PER_GROUP-3,
             .bg_free_inodes_count = INODES_PER_GROUP,
-            .bg_used_dirs_count = 0,
+            .bg_used_dirs_count = 4,
             .bg_pad = 0,
             .bg_reserved = {0,0,0}
         };
         bgdt.table[i] = bgd_template;
     }
-    write_blocks(&bgdt, 2, GROUPS_COUNT * sizeof(struct EXT2BlockGroupDescriptor) / BLOCK_SIZE);
+    write_blocks(&bgdt, 2, 1);
 
     // create root directory
-    
+    struct EXT2Inode root_inode = {
+        .i_mode = 0x4000, // Directory
+        .i_size = 0,
+        .i_blocks = 2, // 2 sectors = 1 block
+        .i_block[0] = 2,
+        .i_block[1] = 2
+    };
+    sync_node(&root_inode, 2);
+    bgdt.table[0].bg_free_inodes_count -= 1;
+    bgdt.table[0].bg_used_dirs_count += 1;
+    sb.s_free_inodes_count -= 1;
 }
 
 void initialize_filesystem_ext2(void){
@@ -248,7 +258,68 @@ int8_t read(struct EXT2DriverRequest request){
 }
 
 int8_t write(struct EXT2DriverRequest *request){
+    // unknown/invalid input
+    if (request == NULL || request->buf == NULL || request->buffer_size == 0)
+    return -1;
 
+    // Validate parent inode
+    struct EXT2Inode parent_inode;
+    read_inode(request->parent_inode, &parent_inode);
+    if ((parent_inode.i_mode & 0xF000) != 0x4000) return 2;
+
+    // Validate if file/folder already exists
+    struct EXT2DirectoryEntry *ptr = get_directory_entry(parent_inode.i_block[2], 0);
+    struct EXT2DirectoryEntry *new_ptr = ptr;
+    while (true){
+        ptr = new_ptr;
+        if (memcmp(get_entry_name(ptr), request->name, request->name_len) == 0){
+            // file
+            if(ptr->file_type == 1 && request->is_directory == 0){
+                return 1;
+            } 
+            
+            // directory
+            if(ptr->file_type == 2 && request->is_directory == 1){
+                return 1;
+            }
+        }
+        new_ptr = get_next_directory_entry(ptr);
+
+        if (new_ptr == NULL){
+            break;
+        }
+    }
+
+    uint32_t new_inode_number = allocate_node();
+    struct EXT2Inode *new_inode;    
+    // read_inode(new_inode_number, new_inode);
+    // Write file 
+    if (!request->is_directory){
+        allocate_node_blocks(request->buf, new_inode, inode_to_bgd(request->parent_inode));
+        new_inode->i_mode = 0x8000 | (1 << 9);  // Temporary permission
+        new_inode->i_size = request->buffer_size;
+        ptr;
+    }
+
+    // Write directory
+    else {
+        struct BlockBuffer block;
+        new_inode->i_block[0] = new_inode_number;
+        new_inode->i_block[1] = request->parent_inode;
+
+        struct EXT2DirectoryEntry new_entry;
+        new_entry.inode = new_inode_number;
+        new_entry.rec_len = 0;
+        new_entry.name_len = request->name_len;
+        new_entry.file_type = 2;
+
+        memcpy(block.buf, &new_entry, sizeof(struct EXT2DirectoryEntry));
+        memcpy(block.buf + sizeof(struct EXT2DirectoryEntry), request->name, request->name_len);
+        
+        new_inode->i_mode = 0x4000 | (1 << 9);  // Temporary permission
+        new_inode->i_size = request->buffer_size;
+        allocate_node_blocks(request->buf, new_inode, inode_to_bgd(request->parent_inode));
+    }
 }
 
 int8_t delete(struct EXT2DriverRequest request){
@@ -600,6 +671,8 @@ void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t preferred_
 
         write_blocks(doubly_indirect, node->i_block[13], 1);
     }
+
+    node->i_blocks = blocks_allocated;
 }
 
 // Write inode and its bitmap to disk

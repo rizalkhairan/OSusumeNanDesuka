@@ -211,6 +211,7 @@ struct EXT2DirectoryEntry
      * 8bit unsigned value used to indicate file type.
      */
     uint8_t file_type;
+    char *name;
 
 }__attribute__((packed));
 
