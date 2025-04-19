@@ -395,8 +395,8 @@ void sync_node(struct EXT2Inode *node, uint32_t inode);
 
 /**
  * @brief find an inode from an inode number
- * @param node pointer of node
- * @param inode location of the node
+ * @param inode_num logical address of an inode
+ * @param out output inode
  */
 void read_inode(uint32_t inode_num, struct EXT2Inode *out);
 
