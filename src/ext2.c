@@ -272,24 +272,6 @@ uint32_t allocate_node(void){
     return inode_number;
 }
 
-void deallocate_node(uint32_t inode){
-    
-}
-
-// Helper to modify block bitmap
-static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value) {
-    if (!bitmap || bit >= BLOCKS_PER_GROUP) return;
-    uint32_t byte = bit / 8;
-    uint8_t mask = 1 << (bit % 8);
-
-    if (value) {
-        bitmap->buf[byte] |= mask;
-    } else {
-        bitmap->buf[byte] &= ~mask;
-    }
-}
-
-
 void deallocate_node(uint32_t inode_num) {
     if (inode_num == 0) return;
     
@@ -438,6 +420,19 @@ void deallocate_node(uint32_t inode_num) {
     // Write BGD and superblock
     write_blocks(&bgdt, 2, 1);
     write_blocks(&sb, 1, 1);
+}
+
+// Helper to modify block bitmap
+static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value) {
+    if (!bitmap || bit >= BLOCKS_PER_GROUP) return;
+    uint32_t byte = bit / 8;
+    uint8_t mask = 1 << (bit % 8);
+
+    if (value) {
+        bitmap->buf[byte] |= mask;
+    } else {
+        bitmap->buf[byte] &= ~mask;
+    }
 }
 
 // Helper to find first free block in group
