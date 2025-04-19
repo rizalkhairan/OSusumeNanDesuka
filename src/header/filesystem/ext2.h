@@ -394,6 +394,14 @@ void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t prefered_b
 void sync_node(struct EXT2Inode *node, uint32_t inode);
 
 /**
+ * @brief Helper to modify block bitmap
+ * @param bitmap block buffer
+ * @param bit bit offset
+ * @param val bit value
+ */
+static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value);
+
+/**
  * @brief find an inode from an inode number
  * @param inode_num logical address of an inode
  * @param out output inode
