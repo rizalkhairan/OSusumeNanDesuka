@@ -52,11 +52,11 @@ uint32_t get_dir_first_child_offset(void *ptr){
 }
 
 uint32_t inode_to_bgd(uint32_t inode){
-    return inode/INODES_PER_GROUP;
+    return (inode-1)/INODES_PER_GROUP;
 }
 
 uint32_t inode_to_local(uint32_t inode){
-    return inode % INODES_PER_GROUP;
+    return (inode-1) % INODES_PER_GROUP;
 }
 
 void init_directory_table(struct EXT2Inode *node, uint32_t inode, uint32_t parent_inode){
@@ -223,8 +223,23 @@ int8_t delete(struct EXT2DriverRequest request){
 
 /* =============================== MEMORY ==========================================*/
 
+// Return inode number
+// This function does not have any side effects (memory/disk modification)
 uint32_t allocate_node(void){
+    uint32_t inode_number = 0;
+    for (int i=0; i<GROUPS_COUNT; ++i){
+        struct EXT2BlockGroupDescriptor *bgd = &bgdt.table[i];
+        if (bgd->bg_free_inodes_count > 0){     // There is a free inode in the group
+            inode_number = 1 + (i+1) * INODES_PER_GROUP - bgd->bg_free_inodes_count;
+            break;
+        }
+    }
+    // It is entirely possible that there is no free inode in the filesystem
+    return inode_number;
+}
 
+void deallocate_node(uint32_t inode){
+    
 }
 
 // Helper to modify block bitmap
@@ -558,8 +573,29 @@ void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t preferred_
     }
 }
 
+// Write inode and its bitmap to disk
 void sync_node(struct EXT2Inode *node, uint32_t inode){
+    uint32_t bgd_index = inode_to_bgd(inode);
+    uint32_t local_index = inode_to_local(inode);
+    struct EXT2BlockGroupDescriptor *bgd = &bgdt.table[bgd_index];
+    struct BlockBuffer block;
 
+    // Inode bitmap
+    uint32_t bitmap_block_offset = (local_index/8) / BLOCK_SIZE;
+    uint32_t bitmap_byte_offset = (local_index/8) % BLOCK_SIZE;
+    uint32_t bitmap_bit_offset = local_index % 8;
+    read_blocks(&block.buf, bgd->bg_inode_bitmap + bitmap_block_offset, 1);
+    block.buf[bitmap_byte_offset] |= (1 << bitmap_bit_offset);
+    write_blocks(&block.buf, bgd->bg_inode_bitmap + bitmap_block_offset, 1);
+
+    // Inode table
+    uint32_t inode_table_block = bgd->bg_inode_table;
+    uint32_t offset_in_block = local_index * INODE_SIZE;
+    uint32_t block_offset = offset_in_block / BLOCK_SIZE;
+    uint32_t offset_in_buf = offset_in_block % BLOCK_SIZE;
+    read_blocks(&block.buf, inode_table_block + block_offset, 1);
+    memcpy(block.buf + offset_in_buf, node, INODE_SIZE);
+    write_blocks(&block.buf, inode_table_block + block_offset, 1);
 }
 
 void read_inode(uint32_t inode_num, struct EXT2Inode *out) {
