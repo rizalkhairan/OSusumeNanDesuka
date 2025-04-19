@@ -19,11 +19,11 @@ void kernel_setup(void) {
     keyboard_state_activate();
 
     initialize_filesystem_ext2();
-    
+
     // struct BlockBuffer b;
     // for (int i = 0; i < 512; i++) b.buf[i] = i % 16;
     // write_blocks(&b, 17, 1);
-    while (true);
+    // while (true);
 
     // while (true) {
     //     char c;

@@ -400,5 +400,14 @@ void sync_node(struct EXT2Inode *node, uint32_t inode);
  */
 void read_inode(uint32_t inode_num, struct EXT2Inode *out);
 
+/**
+ * @brief find an directory in an inode
+ * @param dir_inode inode to be searched
+ * @param name name of the directory that is being searched
+ * @param name_len length of the name of the directory that is being searched
+ * @param result the directory that is found
+ */
+bool find_directory_entry(struct EXT2Inode *dir_inode, char *name, uint8_t name_len, struct EXT2DirectoryEntry *result);
+
 
 #endif

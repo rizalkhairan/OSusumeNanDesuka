@@ -148,7 +148,7 @@ void create_ext2(void){
         };
         bgdt.table[i] = bgd_template;
     }
-    write_blocks(&bgdt, 2, 1);
+    write_blocks(&bgdt, 2, GROUPS_COUNT * sizeof(struct EXT2BlockGroupDescriptor) / BLOCK_SIZE);
 
     // create root directory
     
@@ -206,7 +206,41 @@ bool is_directory_empty(uint32_t inode){
 /* =============================== CRUD ==========================================*/
 
 int8_t read_directory(struct EXT2DriverRequest *prequest){
+     // Unknown / invalid input
+    if (prequest == NULL || prequest->buf == NULL || prequest->buffer_size == 0)
+    return -1;
 
+    // Validate parent inode
+    struct EXT2Inode parent_inode;
+    read_inode(prequest->parent_inode, &parent_inode);
+    if ((parent_inode.i_mode & 0xF000) != 0x4000) return 3; 
+
+    // Validate if parent inode has child
+    struct EXT2DirectoryEntry entry;
+    bool found = find_directory_entry(&parent_inode, prequest->name, prequest->name_len, &entry); 
+    if (!found) return 2;
+
+    // Validate child is a directory
+    struct EXT2Inode child_inode;
+    read_inode(entry.inode, &child_inode);
+    if ((child_inode.i_mode & 0xF000) != 0x4000) return 1;
+
+    // Copy blocks of directory to buf
+    uint32_t total_read = 0;
+    struct BlockBuffer block;
+    for (int i = 0; i < 12 && total_read < prequest->buffer_size; i++) {
+        if (child_inode.i_block[i] == 0) break;
+
+        read_blocks(&block, child_inode.i_block[i], 1);
+        uint32_t to_copy = BLOCK_SIZE;
+        if (total_read + to_copy > prequest->buffer_size)
+            to_copy = prequest->buffer_size - total_read;
+
+        memcpy((uint8_t *)prequest->buf + total_read, block.buf, to_copy);
+        total_read += to_copy;
+    }
+
+    return 0;
 }
 
 int8_t read(struct EXT2DriverRequest request){
@@ -616,3 +650,25 @@ void read_inode(uint32_t inode_num, struct EXT2Inode *out) {
 
     memcpy(out, b.buf + offset_in_buf, inode_size);
 }
+
+bool find_directory_entry(struct EXT2Inode *dir_inode, char *name, uint8_t name_len, struct EXT2DirectoryEntry *result) {
+    struct BlockBuffer block;
+
+    for (int i = 0; i < 12; i++) {
+        if (dir_inode->i_block[i] == 0) continue;
+        read_blocks(&block, dir_inode->i_block[i], 1);
+
+        uint32_t offset = 0;
+        while (offset < BLOCK_SIZE) {
+            struct EXT2DirectoryEntry *entry = (struct EXT2DirectoryEntry *)(block.buf + offset);
+            if (entry->inode != 0 && entry->name_len == name_len &&
+                memcmp((char *)(entry + 1), name, name_len) == 0) {
+                memcpy(result, entry, sizeof(struct EXT2DirectoryEntry));
+                return true;
+            }
+            offset += entry->rec_len;
+        }
+    }
+    return false;
+}
+
