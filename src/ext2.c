@@ -43,7 +43,12 @@ uint16_t get_entry_record_len(uint8_t name_len){
 }
 
 uint32_t get_dir_first_child_offset(void *ptr){
-
+    // First entry (.)
+    struct EXT2DirectoryEntry *secondEntry = get_directory_entry(ptr, 0);
+    // Second entry (..)
+    secondEntry = get_next_directory_entry(secondEntry);
+    
+    return (uint32_t)((uint8_t *)secondEntry - (uint8_t *)ptr);
 }
 
 uint32_t inode_to_bgd(uint32_t inode){
@@ -55,7 +60,32 @@ uint32_t inode_to_local(uint32_t inode){
 }
 
 void init_directory_table(struct EXT2Inode *node, uint32_t inode, uint32_t parent_inode){
+    struct BlockBuffer buf = {0};
 
+    // Create self .
+    struct EXT2DirectoryEntry *dot = (struct EXT2DirectoryEntry *)buf.buf;
+    dot->inode = inode;
+    dot->rec_len = 12; // 8 (struct) + 1 (name) + padding = 12
+    dot->name_len = 1;
+    dot->file_type = 2; // 2 = directory
+    *((char *)(dot + 1)) = '.';
+
+    // Create .. (parent)
+    struct EXT2DirectoryEntry *dotdot = (struct EXT2DirectoryEntry *)((uint8_t *)dot + dot->rec_len);
+    dotdot->inode = parent_inode;
+    dotdot->rec_len = BLOCK_SIZE - dot->rec_len; 
+    dotdot->name_len = 2;
+    dotdot->file_type = 2;
+    *((char *)(dotdot + 1)) = '.';
+    *((char *)(dotdot + 1) + 1) = '.';
+
+    // Allocate new block for this directory
+    uint32_t new_block = allocate_block(); 
+
+    node->i_size = BLOCK_SIZE;
+    node->i_blocks = 1;
+    node->i_block[0] = new_block;
+    for (int i = 1; i < 15; i++) node->i_block[i] = 0;
 }
 
 /* =============================== INITIALIZER ==========================================*/
@@ -143,6 +173,37 @@ void initialize_filesystem_ext2(void){
 }
 
 bool is_directory_empty(uint32_t inode){
+    // Finding current inode from inode number
+    struct EXT2Inode *currentInode;
+    read_inode(inode, currentInode);
+
+    for (int i = 0; i < 12; i++) {
+        if (currentInode->i_block[i] == 0) continue;
+
+        struct BlockBuffer buf;
+        read_blocks(&buf, currentInode->i_block[i], 1);
+
+        uint32_t offset = 0;
+
+        while (offset < BLOCK_SIZE) {
+            struct EXT2DirectoryEntry *entry = (struct EXT2DirectoryEntry *)(buf.buf + offset);
+
+            if (entry->inode != 0) {
+                char *name = (char *)(entry + 1); 
+
+                // Check if it's not "." or ".."
+                if (!(entry->name_len == 1 && name[0] == '.') &&
+                    !(entry->name_len == 2 && name[0] == '.' && name[1] == '.')) {
+                    return false;  
+                }
+            }
+
+            if (entry->rec_len == 0) break; 
+            offset += entry->rec_len;
+        }
+    }
+
+    return true;
 
 }
 
@@ -188,4 +249,23 @@ void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t prefered_b
 
 void sync_node(struct EXT2Inode *node, uint32_t inode){
 
+}
+
+void read_inode(uint32_t inode_num, struct EXT2Inode *out) {
+    uint32_t bgd_idx = inode_to_bgd(inode_num);
+    uint32_t local_idx = inode_to_local(inode_num);
+
+    struct EXT2BlockGroupDescriptor *bgd = &bgdt.table[bgd_idx];
+    uint32_t inode_table_block = bgd->bg_inode_table;
+
+    uint32_t inode_size = sizeof(struct EXT2Inode);
+    uint32_t offset_in_block = local_idx * inode_size;
+
+    uint32_t block_offset = offset_in_block / BLOCK_SIZE;
+    uint32_t offset_in_buf = offset_in_block % BLOCK_SIZE;
+
+    struct BlockBuffer b;
+    read_blocks(&b, inode_table_block + block_offset, 1);
+
+    memcpy(out, b.buf + offset_in_buf, inode_size);
 }

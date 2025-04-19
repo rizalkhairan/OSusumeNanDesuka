@@ -393,4 +393,12 @@ void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t prefered_b
  */
 void sync_node(struct EXT2Inode *node, uint32_t inode);
 
+/**
+ * @brief find an inode from an inode number
+ * @param node pointer of node
+ * @param inode location of the node
+ */
+void read_inode(uint32_t inode_num, struct EXT2Inode *out);
+
+
 #endif
