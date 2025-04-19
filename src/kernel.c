@@ -25,11 +25,10 @@ void kernel_setup(void) {
     // write_blocks(&b, 17, 1);
     // while (true);
 
-    // while (true) {
-    //     char c;
-    //     get_keyboard_buffer(&c);
-    //     if (c) {
-    //         terminal_handle_input(c);
-    //     }
-    // }
+    while (true) {
+        framebuffer_write(0, 0, (char) GROUPS_COUNT + '0', 0x07, 0x00);
+        framebuffer_write(1, 0, (char) INODES_PER_GROUP + '0', 0x07, 0x00);
+        framebuffer_write(2, 0, (char) BLOCKS_PER_GROUP + '0', 0x07, 0x00);
+        framebuffer_write(3, 0, (char) bgdt.table[7].bg_used_dirs_count + '0', 0x07, 0x00);
+    }
 }

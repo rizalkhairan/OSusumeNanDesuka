@@ -18,7 +18,7 @@
 #define INODES_TABLE_BLOCK_COUNT 16u 
 #define INODES_PER_GROUP (INODES_PER_TABLE * INODES_TABLE_BLOCK_COUNT) // number of inodes per group
 
-
+extern struct EXT2BlockGroupDescriptorTable bgdt; // block group descriptor table
 
 /**
  * inodes constant 
