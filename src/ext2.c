@@ -17,19 +17,29 @@ const uint8_t fs_signature[BLOCK_SIZE] = {
 /* =============================== GENERAL ==========================================*/
 
 char *get_entry_name(void *entry){
-
+    struct EXT2DirectoryEntry *dir_entry = (struct EXT2DirectoryEntry *)entry;
+    if(dir_entry->inode==0 || dir_entry->name_len == 0 || dir_entry->name_len > 255){
+        return NULL;
+    } else{
+        char* name = (char*)(dir_entry + sizeof(struct EXT2DirectoryEntry));
+        return name;
+    }
 }
 
 struct EXT2DirectoryEntry *get_directory_entry(void *ptr, uint32_t offset){
-
+    struct EXT2DirectoryEntry* entry = (struct EXT2DirectoryEntry*)((uint8_t*)ptr + offset);
+    return entry;
 }
 
 struct EXT2DirectoryEntry *get_next_directory_entry(struct EXT2DirectoryEntry *entry){
-
+    struct EXT2DirectoryEntry* next = (struct EXT2DirectoryEntry*)((uint8_t*)entry + entry->rec_len);
+    return next;
 }
 
 uint16_t get_entry_record_len(uint8_t name_len){
-
+    uint16_t total = (name_len + sizeof(struct EXT2DirectoryEntry)); // naive size
+    uint16_t total = (total + 3) & ~0x03; // padding
+    return total;
 }
 
 uint32_t get_dir_first_child_offset(void *ptr){
@@ -37,11 +47,11 @@ uint32_t get_dir_first_child_offset(void *ptr){
 }
 
 uint32_t inode_to_bgd(uint32_t inode){
-
+    return inode/INODES_PER_GROUP;
 }
 
 uint32_t inode_to_local(uint32_t inode){
-
+    return inode % INODES_PER_GROUP;
 }
 
 void init_directory_table(struct EXT2Inode *node, uint32_t inode, uint32_t parent_inode){
@@ -115,6 +125,7 @@ void create_ext2(void){
     write_blocks(&bgdt, 2, 1);
 
     // create root directory
+    
 }
 
 void initialize_filesystem_ext2(void){
