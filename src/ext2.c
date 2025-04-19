@@ -235,16 +235,184 @@ void deallocate_node(uint32_t inode){
 
 }
 
-void deallocate_blocks(void *loc, uint32_t blocks){
+// Helper to modify block bitmap
+static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value) {
+    if (!bitmap || bit >= BLOCKS_PER_GROUP) return;
+    uint32_t byte = bit / 8;
+    uint8_t mask = 1 << (bit % 8);
 
+    if (value) {
+        bitmap->buf[byte] |= mask;
+    } else {
+        bitmap->buf[byte] &= ~mask;
+    }
 }
 
-uint32_t deallocate_block(uint32_t *locations, uint32_t blocks, struct BlockBuffer *bitmap, uint32_t depth, uint32_t *last_bgd, bool bgd_loaded){
+// Helper to find first free block in group
+static uint32_t find_free_in_bgd(uint32_t bgd_index) {
+    if (bgd_index >= GROUPS_COUNT) return 0;
+    struct BlockBuffer bitmap;
+    uint32_t bitmap_block = bgdt.table[bgd_index].bg_block_bitmap;
+    
+    read_blocks(&bitmap, bitmap_block, 1);
 
+    for (uint32_t i = 0; i < BLOCKS_PER_GROUP; i++) {
+        uint32_t byte = i / 8;
+        uint8_t bit = i % 8;
+
+        if (!(bitmap.buf[byte] & (1 << bit))) {
+            set_bitmap_bit(&bitmap, i, true);
+            write_blocks(&bitmap, bitmap_block, 1);
+            return bgd_index * BLOCKS_PER_GROUP + i;
+        }
+    }
+
+    return 0; // No space in this group
 }
 
-void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t prefered_bgd){
+// Deallocate consecutive blocks
+void deallocate_blocks(void *loc, uint32_t blocks) {
+    if (!loc || blocks == 0) return;
+    uint32_t start_block = *(uint32_t *)loc;
 
+    for (uint32_t i = 0; i < blocks; i++) {
+        uint32_t block = start_block + i;
+        uint32_t bgd_index = block / BLOCKS_PER_GROUP;
+
+        struct BlockBuffer bitmap;
+        uint32_t bitmap_block = bgdt.table[bgd_index].bg_block_bitmap;
+
+        read_blocks(&bitmap, bitmap_block, 1);
+
+        uint32_t block_in_group = block % BLOCKS_PER_GROUP;
+        set_bitmap_bit(&bitmap, block_in_group, false);
+
+        write_blocks(&bitmap, bitmap_block, 1);
+    }
+}
+
+// Recursive block deallocator
+uint32_t deallocate_block(uint32_t *locations, uint32_t blocks,
+                          struct BlockBuffer *bitmap, uint32_t depth,
+                          uint32_t *last_bgd, bool bgd_loaded) {
+
+    if (!locations || !bitmap || !last_bgd) return *last_bgd;
+    for (uint32_t i = 0; i < blocks; i++) {
+        if (locations[i] == 0) continue;
+
+        if (depth > 0) {
+            uint32_t indirect_blocks[BLOCK_SIZE / sizeof(uint32_t)];
+            read_blocks(indirect_blocks, locations[i], 1);
+
+            deallocate_block(indirect_blocks, BLOCK_SIZE / sizeof(uint32_t),
+                             bitmap, depth - 1, last_bgd, false);
+        }
+
+        uint32_t bgd_index = locations[i] / BLOCKS_PER_GROUP;
+        uint32_t block_in_group = locations[i] % BLOCKS_PER_GROUP;
+
+        if (!bgd_loaded || bgd_index != *last_bgd) {
+            write_blocks(bitmap, bgdt.table[*last_bgd].bg_block_bitmap, 1);
+            read_blocks(bitmap, bgdt.table[bgd_index].bg_block_bitmap, 1);
+            *last_bgd = bgd_index;
+        }
+
+        set_bitmap_bit(bitmap, block_in_group, false);
+        locations[i] = 0;
+    }
+
+    if (!bgd_loaded) {
+        write_blocks(bitmap, bgdt.table[*last_bgd].bg_block_bitmap, 1);
+    }
+
+    return *last_bgd;
+}
+
+// Block allocator for inode
+void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t preferred_bgd) {
+    uint32_t blocks_needed = (node->i_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    uint32_t blocks_allocated = 0;
+    char *data_ptr = (char *)ptr;
+
+    // Direct blocks
+    for (int i = 0; i < 12 && blocks_allocated < blocks_needed; i++) {
+        if (node->i_block[i] == 0) {
+            uint32_t block = find_free_in_bgd(preferred_bgd);
+            if (!block) return;
+
+            node->i_block[i] = block;
+            write_blocks(data_ptr + (blocks_allocated * BLOCK_SIZE), block, 1);
+        }
+        blocks_allocated++;
+    }
+
+    // Singly indirect block
+    if (blocks_allocated < blocks_needed) {
+        if (node->i_block[12] == 0) {
+            node->i_block[12] = find_free_in_bgd(preferred_bgd);
+            if (!node->i_block[12]) return;
+            uint32_t empty[BLOCK_SIZE / sizeof(uint32_t)] = {0};
+            write_blocks(empty, node->i_block[12], 1);
+        }
+
+        uint32_t indirect[BLOCK_SIZE / sizeof(uint32_t)];
+        read_blocks(indirect, node->i_block[12], 1);
+
+        for (int i = 0; i < BLOCK_SIZE / sizeof(uint32_t) && blocks_allocated < blocks_needed; i++) {
+            if (indirect[i] == 0) {
+                uint32_t block = find_free_in_bgd(preferred_bgd);
+                if (!block) break;
+
+                indirect[i] = block;
+                write_blocks(data_ptr + (blocks_allocated * BLOCK_SIZE), block, 1);
+                blocks_allocated++;
+            }
+        }
+
+        write_blocks(indirect, node->i_block[12], 1);
+    }
+
+    // Doubly indirect block
+    if (blocks_allocated < blocks_needed) {
+        if (node->i_block[13] == 0) {
+            node->i_block[13] = find_free_in_bgd(preferred_bgd);
+            if (!node->i_block[13]) return;
+
+            uint32_t empty[BLOCK_SIZE / sizeof(uint32_t)] = {0};
+            write_blocks(empty, node->i_block[13], 1);
+        }
+
+        uint32_t doubly_indirect[BLOCK_SIZE / sizeof(uint32_t)];
+        read_blocks(doubly_indirect, node->i_block[13], 1);
+
+        for (int i = 0; i < BLOCK_SIZE / sizeof(uint32_t) && blocks_allocated < blocks_needed; i++) {
+            if (doubly_indirect[i] == 0) {
+                doubly_indirect[i] = find_free_in_bgd(preferred_bgd);
+                if (!doubly_indirect[i]) break;
+
+                uint32_t empty[BLOCK_SIZE / sizeof(uint32_t)] = {0};
+                write_blocks(empty, doubly_indirect[i], 1);
+            }
+
+            uint32_t singly_indirect[BLOCK_SIZE / sizeof(uint32_t)];
+            read_blocks(singly_indirect, doubly_indirect[i], 1);
+
+            for (int j = 0; j < BLOCK_SIZE / sizeof(uint32_t) && blocks_allocated < blocks_needed; j++) {
+                if (singly_indirect[j] == 0) {
+                    uint32_t block = find_free_in_bgd(preferred_bgd);
+                    if (!block) break;
+
+                    singly_indirect[j] = block;
+                    write_blocks(data_ptr + (blocks_allocated * BLOCK_SIZE), block, 1);
+                    blocks_allocated++;
+                }
+            }
+
+            write_blocks(singly_indirect, doubly_indirect[i], 1);
+        }
+
+        write_blocks(doubly_indirect, node->i_block[13], 1);
+    }
 }
 
 void sync_node(struct EXT2Inode *node, uint32_t inode){
