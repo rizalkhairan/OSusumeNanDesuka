@@ -38,7 +38,7 @@ struct EXT2DirectoryEntry *get_next_directory_entry(struct EXT2DirectoryEntry *e
 
 uint16_t get_entry_record_len(uint8_t name_len){
     uint16_t total = (name_len + sizeof(struct EXT2DirectoryEntry)); // naive size
-    uint16_t total = (total + 3) & ~0x03; // padding
+    total = (total + 3) & ~0x03; // padding
     return total;
 }
 
@@ -80,12 +80,8 @@ void init_directory_table(struct EXT2Inode *node, uint32_t inode, uint32_t paren
     *((char *)(dotdot + 1) + 1) = '.';
 
     // Allocate new block for this directory
-    uint32_t new_block = allocate_block(); 
-
-    node->i_size = BLOCK_SIZE;
-    node->i_blocks = 1;
-    node->i_block[0] = new_block;
-    for (int i = 1; i < 15; i++) node->i_block[i] = 0;
+    allocate_node_blocks(dot, node, inode_to_bgd(inode));
+    allocate_node_blocks(dotdot, node, inode_to_bgd(inode));
 }
 
 /* =============================== INITIALIZER ==========================================*/
