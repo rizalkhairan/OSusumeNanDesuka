@@ -130,7 +130,9 @@ void create_ext2(void){
             Legend: sign = fs_signature, super = superblock, bgdt* = block group descriptor table (prime copy)
             bgdt = copy/backup of bgdt*, bbitm = block bitmap, ibitm = inode bitmap, inodes = inode table
     
-            Note: always refer to the actual block number stored in the BGDs
+            Note:
+                - always refer to the actual block number stored in the BGDs
+                - no inode will span multiple blocks, there is a gap at the end of an inode block (use read_inode function)
     */
    
     struct BlockBuffer b;
@@ -833,20 +835,16 @@ static uint32_t find_free_in_bgd(uint32_t bgd_index) {
 void read_inode(uint32_t inode_num, struct EXT2Inode *out) {
     uint32_t bgd_idx = inode_to_bgd(inode_num);
     uint32_t local_idx = inode_to_local(inode_num);
-
     struct EXT2BlockGroupDescriptor *bgd = &bgdt.table[bgd_idx];
-    uint32_t inode_table_block = bgd->bg_inode_table;
 
-    uint32_t inode_size = sizeof(struct EXT2Inode);
-    uint32_t offset_in_block = local_idx * inode_size;
-
-    uint32_t block_offset = offset_in_block / BLOCK_SIZE;
-    uint32_t offset_in_buf = offset_in_block % BLOCK_SIZE;
+    // Locate the block that contain the specific inode and its offset within the block
+    uint32_t inode_table_block = bgd->bg_inode_table + (local_idx / INODES_PER_TABLE);
+    uint32_t offset = (local_idx % INODES_PER_TABLE) * INODE_SIZE;
 
     struct BlockBuffer b;
-    read_blocks(&b, inode_table_block + block_offset, 1);
+    read_blocks(&b, inode_table_block, 1);
 
-    memcpy(out, b.buf + offset_in_buf, inode_size);
+    memcpy(out, b.buf + offset, INODE_SIZE);
 }
 
 bool find_directory_entry(struct EXT2Inode *dir_inode, char *name, uint8_t name_len, struct EXT2DirectoryEntry *result) {
