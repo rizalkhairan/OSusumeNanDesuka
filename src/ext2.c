@@ -115,42 +115,91 @@ bool is_empty_storage(void){
 }
 
 void create_ext2(void){
-    // struct EXT2Superblock tes = {
-    //     .s_inodes_count = 99,
-    //     .s_blocks_count = 99,
-    //     .s_r_blocks_count = 99,
-    //     .s_free_blocks_count = 99,
-    //     .s_free_inodes_count = 99,
-    //     .s_first_data_block = 99,
-    //     .s_first_ino = 99,
-    //     .s_blocks_per_group = 99,
-    //     .s_frags_per_group = 99,
-    //     .s_inodes_per_group = 99,
-    //     .s_magic = 99,
-    //     .s_prealloc_blocks = 99,
-    //     .s_prealloc_dir_blocks = 99,
-    // };
+    /* Block scheme:
+
+                Block# modulo BLOCKS_PER_GROUP
+                |  0  |  1  |  2  |  3  |  4  |  5  | ... | 18  | 19  | 20  | 21  | ... | BLOCKS_PER_GROUP-1
+    Group#  0   |sign |super|bgdt*|bbitm|ibitm|inodes---------------------->|free...
+            1   |bgdt |bbitm|ibitm|inodes---------------->|free...
+            2   |bgdt |bbitm|ibitm|inodes---------------->|free...
+            3   |bgdt |bbitm|ibitm|inodes---------------->|free...
+            .
+            .
+    GROUPS_COUNT|bgdt |bbitm|ibitm|inodes---------------->|free...
+            -1  |     |     |     |                       |
+            Legend: sign = fs_signature, super = superblock, bgdt* = block group descriptor table (prime copy)
+            bgdt = copy/backup of bgdt*, bbitm = block bitmap, ibitm = inode bitmap, inodes = inode table
     
+            Note: always refer to the actual block number stored in the BGDs
+    */
+   
     struct BlockBuffer b;
     memcpy(b.buf, fs_signature, BLOCK_SIZE);
     write_blocks(&b, 0, 1);  // Signature
-    write_blocks(&sb, 1, 1); // Superblock
-    for(int i=0;i<GROUPS_COUNT;i++){ // BGDs, TODO: initiate only the first one or all of them?
-        struct EXT2BlockGroupDescriptor bgd_template = {
-            .bg_block_bitmap = 3 + (i*BLOCKS_PER_GROUP),
-            .bg_inode_bitmap = 4 + (i*BLOCKS_PER_GROUP),
-            .bg_inode_table = 5 + (i*BLOCKS_PER_GROUP),
-            .bg_free_blocks_count = BLOCKS_PER_GROUP-3,
-            .bg_free_inodes_count = INODES_PER_GROUP,
-            .bg_used_dirs_count = 4,
-            .bg_pad = 0,
-            .bg_reserved = {0,0,0}
-        };
-        bgdt.table[i] = bgd_template;
+    memset(b.buf, 0x0, BLOCK_SIZE);
+    memcpy(b.buf, &sb, sizeof(struct EXT2Superblock));
+    write_blocks(b.buf, 1, 1); // Superblock
+   
+    // Signature, superblock, BGDT, block bitmap, inode bitmap, and INODES_TABLE_BLOCK_COUNT blocks of inodes
+    uint8_t initial_group_blocks = 5 + INODES_TABLE_BLOCK_COUNT;
+    for(uint8_t i=0;i<GROUPS_COUNT;i++){ // BGDs
+        if (i==0) {
+            struct EXT2BlockGroupDescriptor bgd_template = {
+                .bg_block_bitmap = 3 + (i*BLOCKS_PER_GROUP),
+                .bg_inode_bitmap = 4 + (i*BLOCKS_PER_GROUP),
+                .bg_inode_table = 5 + (i*BLOCKS_PER_GROUP),
+                .bg_free_blocks_count = BLOCKS_PER_GROUP-initial_group_blocks,
+                .bg_free_inodes_count = INODES_PER_GROUP,
+                .bg_used_dirs_count = 0,
+                .bg_pad = 0,
+                .bg_reserved = {0,0,0}
+            };
+            bgdt.table[i] = bgd_template;
+        }
+        else {
+            struct EXT2BlockGroupDescriptor bgd_template = {
+                .bg_block_bitmap = 1 + (i*BLOCKS_PER_GROUP),
+                .bg_inode_bitmap = 2 + (i*BLOCKS_PER_GROUP),
+                .bg_inode_table = 3 + (i*BLOCKS_PER_GROUP),
+                .bg_free_blocks_count = BLOCKS_PER_GROUP-(initial_group_blocks-2),  // Without signature and superblock
+                .bg_free_inodes_count = INODES_PER_GROUP,
+                .bg_used_dirs_count = 0,
+                .bg_pad = 0,
+                .bg_reserved = {0,0,0}
+            };
+            bgdt.table[i] = bgd_template;
+        }
     }
-    write_blocks(&bgdt, 2, 1);
 
-    // create root directory
+    // Write BGDT
+    memset(b.buf, 0, BLOCK_SIZE);
+    memcpy(b.buf, &bgdt, sizeof(struct EXT2BlockGroupDescriptorTable));
+    for (uint8_t group=0;group<GROUPS_COUNT;group++) {
+        if (group == 0) {
+            write_blocks(b.buf, 2, 1);
+        }
+        else {
+            write_blocks(b.buf, group * BLOCKS_PER_GROUP, 1);
+        }
+    }
+    
+    // Write inode bitmap
+    memset(b.buf, 0, BLOCK_SIZE);
+    for (uint8_t group=0;group<GROUPS_COUNT;group++) {
+        write_blocks(b.buf, bgdt.table[group].bg_inode_bitmap, 1);
+    }
+    // Block bitmap
+    for (uint8_t i=0;i<initial_group_blocks;i++){
+        set_bitmap_bit(b.buf, i, true);
+    }
+    write_blocks(b.buf, bgdt.table[0].bg_block_bitmap, 1);
+    set_bitmap_bit(b.buf, initial_group_blocks-1, false); // Without superblock and signature
+    set_bitmap_bit(b.buf, initial_group_blocks-2, false);
+    for (uint8_t group=1;group<GROUPS_COUNT;group++) {
+        write_blocks(b.buf, bgdt.table[group].bg_block_bitmap, 1);
+    }
+
+    // create root directory. TO DO
     struct EXT2Inode root_inode = {
         .i_mode = 0x4000, // Directory
         .i_size = 0,
@@ -680,21 +729,16 @@ void sync_node(struct EXT2Inode *node, uint32_t inode){
     struct BlockBuffer block;
 
     // Inode bitmap
-    uint32_t bitmap_block_offset = (local_index/8) / BLOCK_SIZE;
-    uint32_t bitmap_byte_offset = (local_index/8) % BLOCK_SIZE;
-    uint32_t bitmap_bit_offset = local_index % 8;
-    read_blocks(&block.buf, bgd->bg_inode_bitmap + bitmap_block_offset, 1);
-    block.buf[bitmap_byte_offset] |= (1 << bitmap_bit_offset);
-    write_blocks(&block.buf, bgd->bg_inode_bitmap + bitmap_block_offset, 1);
+    read_blocks(block.buf, bgd->bg_inode_bitmap, 1);
+    set_bitmap_bit(block.buf, inode, true);
+    write_blocks(block.buf, bgd->bg_inode_bitmap, 1);
 
     // Inode table
-    uint32_t inode_table_block = bgd->bg_inode_table;
-    uint32_t offset_in_block = local_index * INODE_SIZE;
-    uint32_t block_offset = offset_in_block / BLOCK_SIZE;
-    uint32_t offset_in_buf = offset_in_block % BLOCK_SIZE;
-    read_blocks(&block.buf, inode_table_block + block_offset, 1);
-    memcpy(block.buf + offset_in_buf, node, INODE_SIZE);
-    write_blocks(&block.buf, inode_table_block + block_offset, 1);
+    uint32_t inode_table_block = bgd->bg_inode_table + (local_index / INODES_PER_TABLE);
+    uint32_t offset_in_block = (local_index % INODES_PER_TABLE) * INODE_SIZE;
+    read_blocks(block.buf, inode_table_block, 1);
+    memcpy(block.buf + offset_in_block, node, INODE_SIZE);
+    write_blocks(block.buf, inode_table_block, 1);
 }
 
 

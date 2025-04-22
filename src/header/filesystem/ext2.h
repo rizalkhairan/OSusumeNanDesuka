@@ -9,7 +9,7 @@
 // --- EXT2 FILE SYSTEM GLOBAL VARIABLES --- //
 // All informations regarding filesystem referes here
 // Might be temporary, for convenience
-extern struct EXT2Superblock superblock;
+extern struct EXT2Superblock sb;
 extern struct EXT2BlockGroupDescriptorTable bgdt;
 
 /* -- IF2130 File System constants -- */
@@ -404,7 +404,7 @@ void sync_node(struct EXT2Inode *node, uint32_t inode);
  * @brief Copy all data pointed by an inode into a buffer (all types of inodes)
  * @param inode inode on which the data is pointed by
  * @param buf data buffer to be copied into
- * @param val data buffer size
+ * @param buffer_size data buffer size
  */
 void load_inode_data(struct EXT2Inode* inode,  void* buf, uint32_t buffer_size);
 
@@ -413,7 +413,7 @@ void load_inode_data(struct EXT2Inode* inode,  void* buf, uint32_t buffer_size);
  * @param block_number block on which the data is extracted from
  * @param depth depth of the data. 0 = direct, 1 = indirect, 2 = doubly indirect, 3 = triply indirect
  * @param buf data buffer to be copied into
- * @param val data buffer size
+ * @param buffer_size data buffer size
  * @return number of bytes loaded
  */
 uint32_t load_block_data(uint32_t block_number, uint8_t depth, void* buf, uint32_t buffer_size);
@@ -421,7 +421,7 @@ uint32_t load_block_data(uint32_t block_number, uint8_t depth, void* buf, uint32
 /**
  * @brief Helper to modify block bitmap
  * @param bitmap block buffer
- * @param bit bit offset
+ * @param bit bit offset in range (0, BLOCK_SIZE-1)
  * @param val bit value
  */
 static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value);
