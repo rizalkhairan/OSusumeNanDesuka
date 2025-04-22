@@ -254,7 +254,38 @@ int8_t read_directory(struct EXT2DriverRequest *prequest){
 }
 
 int8_t read(struct EXT2DriverRequest request){
+    struct EXT2Inode inode;
+    struct EXT2DirectoryEntry entry;
 
+    // Unknown / invalid input
+    if (request.buf == NULL || request.buffer_size == 0 || request.name == NULL || request.name_len == 0) {
+        return -1;
+    }
+    if (request.is_directory) {
+        return 1;
+    }
+
+    read_inode(request.parent_inode, &inode);   // Assume inode validity
+    if ((inode.i_mode & 0xF000)!=EXT2_S_IFDIR) {
+        return 4;   // Invalid inode or inode is not a directory
+    }
+
+    // Search file
+    if (!find_directory_entry(&inode, request.name, request.name_len, &entry)) {
+        return 3;   // File not found
+    }
+    if (entry.file_type != EXT2_FT_REG_FILE) {
+        return 1;   // Not a file
+    }
+
+    // Load data
+    read_inode(entry.inode, &inode);
+    if (inode.i_size > request.buffer_size) {
+        return 2;   // Not enough buffer
+    }
+
+    load_inode_data(&inode, request.buf, request.buffer_size);
+    return 0;   // Success
 }
 
 int8_t write(struct EXT2DriverRequest *request){
@@ -668,6 +699,57 @@ void sync_node(struct EXT2Inode *node, uint32_t inode){
 
 
 /* =============================== HELPER ======================================== */
+
+void load_inode_data(struct EXT2Inode* inode, void* buf, uint32_t buffer_size) {
+    uint32_t total_read = 0;
+    if (inode->i_size > buffer_size) return; // Not enough buffer
+    if (inode->i_size == 0) return; // Empty file
+    if (buf == NULL) return; // Invalid buffer
+
+    // Direct blocks
+    for (int i = 0; i < 12 && total_read < buffer_size; i++) {
+        if (inode->i_block[i] == 0) return;
+        total_read += load_block_data(inode->i_block[i], 0, buf + total_read, buffer_size - total_read);
+    }
+    // Indirect blocks
+    if (inode->i_block[12] != 0 && total_read < buffer_size) {
+        total_read += load_block_data(inode->i_block[12], 1, buf + total_read, buffer_size - total_read);
+    } else { return; }
+    // Doubly indirect blocks
+    if (inode->i_block[13] != 0 && total_read < buffer_size) {
+        total_read += load_block_data(inode->i_block[13], 2, buf + total_read, buffer_size - total_read);
+    } else { return; }
+    // Triply indirect blocks
+    if (inode->i_block[14] != 0 && total_read < buffer_size) {
+        total_read += load_block_data(inode->i_block[14], 3, buf + total_read, buffer_size - total_read);
+    } else { return; }
+}
+
+uint32_t load_block_data(uint32_t block_number, uint8_t depth, void* buf, uint32_t buffer_size) {
+    struct BlockBuffer block;
+    uint32_t total_read = 0;
+    uint32_t *block_ptr = (uint32_t *)block.buf;
+    
+    if (buffer_size <= 0) return 0;
+    
+    read_blocks(&block, block_number, 1);
+    if (depth == 0) {
+        uint32_t to_read = BLOCK_SIZE;
+        if (buffer_size < BLOCK_SIZE) {
+            to_read = buffer_size;
+        }
+        memcpy(buf, block.buf, to_read);
+        total_read = to_read;
+    } else {
+        total_read = 0;
+        for (int i = 0; i < BLOCK_SIZE / sizeof(uint32_t); i++) {
+            if (block_ptr[i] == 0) continue;
+            total_read += load_block_data(block_ptr[i], depth - 1, buf + total_read, buffer_size - total_read);
+        }
+    }
+
+    return total_read;
+}
 
 // Helper to modify block bitmap
 static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value) {

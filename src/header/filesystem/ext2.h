@@ -401,6 +401,24 @@ void sync_node(struct EXT2Inode *node, uint32_t inode);
 /* =============================== HELPER ======================================== */
 
 /**
+ * @brief Copy all data pointed by an inode into a buffer (all types of inodes)
+ * @param inode inode on which the data is pointed by
+ * @param buf data buffer to be copied into
+ * @param val data buffer size
+ */
+void load_inode_data(struct EXT2Inode* inode,  void* buf, uint32_t buffer_size);
+
+/**
+ * @brief Copy data from a block into a buffer
+ * @param block_number block on which the data is extracted from
+ * @param depth depth of the data. 0 = direct, 1 = indirect, 2 = doubly indirect, 3 = triply indirect
+ * @param buf data buffer to be copied into
+ * @param val data buffer size
+ * @return number of bytes loaded
+ */
+uint32_t load_block_data(uint32_t block_number, uint8_t depth, void* buf, uint32_t buffer_size);
+
+/**
  * @brief Helper to modify block bitmap
  * @param bitmap block buffer
  * @param bit bit offset
