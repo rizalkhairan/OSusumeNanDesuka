@@ -6,6 +6,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+// --- EXT2 FILE SYSTEM GLOBAL VARIABLES --- //
+// All informations regarding filesystem referes here
+// Might be temporary, for convenience
+extern struct EXT2Superblock superblock;
+extern struct EXT2BlockGroupDescriptorTable bgdt;
 
 /* -- IF2130 File System constants -- */
 #define BOOT_SECTOR 0 // legacy from FAT32 filesystem IF2130 OS
@@ -18,7 +23,6 @@
 #define INODES_TABLE_BLOCK_COUNT 16u 
 #define INODES_PER_GROUP (INODES_PER_TABLE * INODES_TABLE_BLOCK_COUNT) // number of inodes per group
 
-extern struct EXT2BlockGroupDescriptorTable bgdt; // block group descriptor table
 
 /**
  * inodes constant 
@@ -393,6 +397,9 @@ void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t prefered_b
  */
 void sync_node(struct EXT2Inode *node, uint32_t inode);
 
+
+/* =============================== HELPER ======================================== */
+
 /**
  * @brief Helper to modify block bitmap
  * @param bitmap block buffer
@@ -400,6 +407,13 @@ void sync_node(struct EXT2Inode *node, uint32_t inode);
  * @param val bit value
  */
 static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value);
+
+/**
+ * @brief find a free block in the given bgd
+ * @param bgd_index index of the block group descriptor
+ * @return block number
+ */
+static uint32_t find_free_in_bgd(uint32_t bgd_index);
 
 /**
  * @brief find an inode from an inode number

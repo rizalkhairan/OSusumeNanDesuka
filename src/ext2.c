@@ -493,40 +493,6 @@ void deallocate_node(uint32_t inode_num) {
     write_blocks(&sb, 1, 1);
 }
 
-// Helper to modify block bitmap
-static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value) {
-    if (!bitmap || bit >= BLOCKS_PER_GROUP) return;
-    uint32_t byte = bit / 8;
-    uint8_t mask = 1 << (bit % 8);
-
-    if (value) {
-        bitmap->buf[byte] |= mask;
-    } else {
-        bitmap->buf[byte] &= ~mask;
-    }
-}
-
-// Helper to find first free block in group
-static uint32_t find_free_in_bgd(uint32_t bgd_index) {
-    if (bgd_index >= GROUPS_COUNT) return 0;
-    struct BlockBuffer bitmap;
-    uint32_t bitmap_block = bgdt.table[bgd_index].bg_block_bitmap;
-    
-    read_blocks(&bitmap, bitmap_block, 1);
-
-    for (uint32_t i = 0; i < BLOCKS_PER_GROUP; i++) {
-        uint32_t byte = i / 8;
-        uint8_t bit = i % 8;
-
-        if (!(bitmap.buf[byte] & (1 << bit))) {
-            set_bitmap_bit(&bitmap, i, true);
-            write_blocks(&bitmap, bitmap_block, 1);
-            return bgd_index * BLOCKS_PER_GROUP + i;
-        }
-    }
-
-    return 0; // No space in this group
-}
 
 // Deallocate consecutive blocks
 void deallocate_blocks(void *loc, uint32_t blocks) {
@@ -698,6 +664,44 @@ void sync_node(struct EXT2Inode *node, uint32_t inode){
     read_blocks(&block.buf, inode_table_block + block_offset, 1);
     memcpy(block.buf + offset_in_buf, node, INODE_SIZE);
     write_blocks(&block.buf, inode_table_block + block_offset, 1);
+}
+
+
+/* =============================== HELPER ======================================== */
+
+// Helper to modify block bitmap
+static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value) {
+    if (!bitmap || bit >= BLOCKS_PER_GROUP) return;
+    uint32_t byte = bit / 8;
+    uint8_t mask = 1 << (bit % 8);
+
+    if (value) {
+        bitmap->buf[byte] |= mask;
+    } else {
+        bitmap->buf[byte] &= ~mask;
+    }
+}
+
+// Helper to find first free block in group
+static uint32_t find_free_in_bgd(uint32_t bgd_index) {
+    if (bgd_index >= GROUPS_COUNT) return 0;
+    struct BlockBuffer bitmap;
+    uint32_t bitmap_block = bgdt.table[bgd_index].bg_block_bitmap;
+    
+    read_blocks(&bitmap, bitmap_block, 1);
+
+    for (uint32_t i = 0; i < BLOCKS_PER_GROUP; i++) {
+        uint32_t byte = i / 8;
+        uint8_t bit = i % 8;
+
+        if (!(bitmap.buf[byte] & (1 << bit))) {
+            set_bitmap_bit(&bitmap, i, true);
+            write_blocks(&bitmap, bitmap_block, 1);
+            return bgd_index * BLOCKS_PER_GROUP + i;
+        }
+    }
+
+    return 0; // No space in this group
 }
 
 void read_inode(uint32_t inode_num, struct EXT2Inode *out) {
