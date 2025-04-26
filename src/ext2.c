@@ -287,19 +287,7 @@ int8_t read_directory(struct EXT2DriverRequest *prequest){
     if ((child_inode.i_mode & 0xF000) != 0x4000) return 1;
 
     // Copy blocks of directory to buf
-    uint32_t total_read = 0;
-    struct BlockBuffer block;
-    for (int i = 0; i < 12 && total_read < prequest->buffer_size; i++) {
-        if (child_inode.i_block[i] == 0) break;
-
-        read_blocks(&block, child_inode.i_block[i], 1);
-        uint32_t to_copy = BLOCK_SIZE;
-        if (total_read + to_copy > prequest->buffer_size)
-            to_copy = prequest->buffer_size - total_read;
-
-        memcpy((uint8_t *)prequest->buf + total_read, block.buf, to_copy);
-        total_read += to_copy;
-    }
+    load_inode_data(&child_inode, prequest->buf, prequest->buffer_size);
 
     return 0;
 }
