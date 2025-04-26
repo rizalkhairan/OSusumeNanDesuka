@@ -515,7 +515,7 @@ uint32_t allocate_node(void){
         read_blocks(bitmap.buf, bgd->bg_inode_bitmap, 1);
         for (uint32_t local_inode=0;local_inode<INODES_PER_GROUP;local_inode++) {
             if (!is_bitmap_set(bitmap.buf, local_inode)) {
-                return local_inode + (i * INODES_PER_GROUP) + 1;
+                return local_inode + (i * INODES_PER_GROUP);
             }
         }
     }
