@@ -459,4 +459,6 @@ bool exists_n_free_blocks(int n);
 // TODO: Should there be any validation here (thus, refactoring this to an int for returning error code),
 // or should this just assume that everything will happen perfectly (enough block, etc)
 void add_directory_entry(struct EXT2DirectoryEntry dir, char *name, uint32_t inode_number);
+
+bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 #endif
