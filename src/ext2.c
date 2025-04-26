@@ -593,6 +593,7 @@ int8_t write(struct EXT2DriverRequest *request){
     
     // Write file 
     if (!request->is_directory){
+        struct EXT2Inode *new_inode;    
         // Alokasikan memori untuk inode baru
         struct EXT2Inode temp_inode = {0};
         new_inode = &temp_inode;
@@ -606,8 +607,6 @@ int8_t write(struct EXT2DriverRequest *request){
         // Jumlah blok (dalam 512-byte blocks, EXT2 i_blocks menyimpan ukuran dalam 512-byte block)
         new_inode->i_blocks = blocks_needed * (BLOCK_SIZE / 512);
 
-
-
         // Alokasikan blok dan isi dengan data
         allocate_node_blocks(request->buf, new_inode, inode_to_bgd(request->parent_inode));
 
@@ -618,7 +617,7 @@ int8_t write(struct EXT2DriverRequest *request){
         new_entry.name_len = request->name_len;
         new_entry.file_type = 1; // 1 = file reguler
 
-        add_directory_entry(&new_entry, request->name, request->parent_inode);
+        add_directory_entry(new_entry, request->name, request->parent_inode);
     }
 
 
