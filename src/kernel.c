@@ -19,6 +19,41 @@ void kernel_setup(void) {
     keyboard_state_activate();
 
     initialize_filesystem_ext2();
+    
+    int x;
+    // for(int i=0;i<12;i++){
+    struct EXT2DriverRequest req = {
+        .name = "Since Nijika is the paragon of human virtue without equal past or present, she is most resplendent in love, tributes and accolades. Waking or sleeping, I must not forget Nijika’s great boon and in order to return her favour by day and by night aaaaaaaaaaa",
+        .name_len = 255,
+        .parent_inode = 2,
+        .buffer_size = 1,
+        .is_directory = true,
+    };
+    x = write(&req);
+
+    // }
+    struct EXT2DriverRequest reqaa = {
+        .name = "Sinse Nijika is the paragon of human virtue without equal past or present, she is most resplendent in love, tributes and accolades. Waking or sleeping, I must not forget Nijika’s great boon and in order to return her favour by day and by night aaaaaaaaaaa",
+        .name_len = 255,
+        .parent_inode = 2,
+        .buffer_size = 1,
+        .is_directory = true,
+    };
+    x = write(&reqaa);
+
+    struct BlockBuffer blok;
+    struct EXT2DriverRequest req2 = {
+        .buf = blok.buf,
+        .name = ".",
+        .name_len = 1,
+        .parent_inode = 2,
+        .buffer_size = BLOCK_SIZE,
+        .is_directory = true,
+    };
+    read_directory(&req2);
+    
+    struct EXT2Inode root;
+    read_inode(2, &root);
 
     // struct BlockBuffer b;
     // for (int i = 0; i < 512; i++) b.buf[i] = i % 16;

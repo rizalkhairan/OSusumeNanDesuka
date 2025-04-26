@@ -417,5 +417,14 @@ void read_inode(uint32_t inode_num, struct EXT2Inode *out);
  */
 bool find_directory_entry(struct EXT2Inode *dir_inode, char *name, uint8_t name_len, struct EXT2DirectoryEntry *result);
 
+// Helper to find first free block in group, or anywhere else if one exists
+uint32_t find_free_anywhere(uint32_t bgd_index);
 
+// Check whether there's n blocks available to store data inside the disk
+bool exists_n_free_blocks(int n);
+
+// add dir and its name to directory entry in inode_number
+// TODO: Should there be any validation here (thus, refactoring this to an int for returning error code),
+// or should this just assume that everything will happen perfectly (enough block, etc)
+void add_directory_entry(struct EXT2DirectoryEntry dir, char *name, uint32_t inode_number);
 #endif
