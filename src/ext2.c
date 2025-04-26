@@ -241,34 +241,18 @@ bool is_directory_empty(uint32_t inode){
     struct EXT2Inode *currentInode;
     read_inode(inode, currentInode);
 
-    for (int i = 0; i < 12; i++) {
-        if (currentInode->i_block[i] == 0) continue;
+    struct BlockBuffer buf;
+    read_blocks(&buf, currentInode->i_block[0], 1);
 
-        struct BlockBuffer buf;
-        read_blocks(&buf, currentInode->i_block[i], 1);
-
-        uint32_t offset = 0;
-
-        while (offset < BLOCK_SIZE) {
-            struct EXT2DirectoryEntry *entry = (struct EXT2DirectoryEntry *)(buf.buf + offset);
-
-            if (entry->inode != 0) {
-                char *name = (char *)(entry + 1); 
-
-                // Check if it's not "." or ".."
-                if (!(entry->name_len == 1 && name[0] == '.') &&
-                    !(entry->name_len == 2 && name[0] == '.' && name[1] == '.')) {
-                    return false;  
-                }
-            }
-
-            if (entry->rec_len == 0) break; 
-            offset += entry->rec_len;
-        }
+    uint32_t offset = 0;
+    struct EXT2DirectoryEntry *self = (struct EXT2DirectoryEntry *)(buf.buf + offset);
+    offset += self->rec_len;
+    struct EXT2DirectoryEntry *parent = (struct EXT2DirectoryEntry *)(buf.buf + offset);
+    if (parent->rec_len == 0){
+        return true;
+    } else {
+        return false;
     }
-
-    return true;
-
 }
 
 /* =============================== CRUD ==========================================*/
