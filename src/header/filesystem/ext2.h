@@ -427,6 +427,14 @@ uint32_t load_block_data(uint32_t block_number, uint8_t depth, void* buf, uint32
 static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value);
 
 /**
+ * @brief Helper to modify block bitmap
+ * @param bitmap bitmap
+ * @param bit bit offset in range (0, BLOCK_SIZE-1)
+ * @return true if the bit is set
+ */
+bool is_bitmap_set(struct BlockBuffer *bitmap, uint32_t bit);
+
+/**
  * @brief find a free block in the given bgd
  * @param bgd_index index of the block group descriptor
  * @return block number

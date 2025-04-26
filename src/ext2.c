@@ -187,7 +187,12 @@ void create_ext2(void){
     
     // Write inode bitmap
     memset(b.buf, 0, BLOCK_SIZE);
-    for (uint8_t group=0;group<GROUPS_COUNT;group++) {
+    set_bitmap_bit(b.buf, 0, true); // Mark inode 0 as unused (invalid inode)
+    set_bitmap_bit(b.buf, 1, true); // Mark inode 1 as used (unclear inode). Inode 2 is synced later
+    write_blocks(b.buf, bgdt.table[0].bg_inode_bitmap, 1);
+    set_bitmap_bit(b.buf, 0, false); // After group 0, all local inodes are free
+    set_bitmap_bit(b.buf, 1, false);
+    for (uint8_t group=1;group<GROUPS_COUNT;group++) {
         write_blocks(b.buf, bgdt.table[group].bg_inode_bitmap, 1);
     }
     // Block bitmap
@@ -520,15 +525,18 @@ int8_t delete(struct EXT2DriverRequest request) {
 // This function does not have any side effects (memory/disk modification)
 uint32_t allocate_node(void){
     uint32_t inode_number = 0;
+    struct BlockBuffer bitmap;
     for (int i=0; i<GROUPS_COUNT; ++i){
         struct EXT2BlockGroupDescriptor *bgd = &bgdt.table[i];
-        if (bgd->bg_free_inodes_count > 0){     // There is a free inode in the group
-            inode_number = 1 + (i+1) * INODES_PER_GROUP - bgd->bg_free_inodes_count;
-            break;
+        read_blocks(bitmap.buf, bgd->bg_inode_bitmap, 1);
+        for (uint32_t local_inode=0;local_inode<INODES_PER_GROUP;local_inode++) {
+            if (!is_bitmap_set(bitmap.buf, local_inode)) {
+                return local_inode + (i * INODES_PER_GROUP) + 1;
+            }
         }
     }
-    // It is entirely possible that there is no free inode in the filesystem
-    return inode_number;
+
+    return 0;
 }
 
 void deallocate_node(uint32_t inode_num) {
@@ -914,6 +922,15 @@ static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value)
     } else {
         bitmap->buf[byte] &= ~mask;
     }
+}
+
+// Return true if bit is set
+bool is_bitmap_set(struct BlockBuffer *bitmap, uint32_t bit) {
+    if (bit > BLOCK_SIZE) return false; 
+    uint32_t byte = bit / 8;
+    uint8_t mask = 1 << (bit % 8);
+
+    return (bitmap->buf[byte] & mask) != 0;
 }
 
 // Helper to find first free block in group
