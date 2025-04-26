@@ -392,8 +392,104 @@ int8_t write(struct EXT2DriverRequest *request){
     }
 }
 
-int8_t delete(struct EXT2DriverRequest request){
+bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request) {
+    struct BlockBuffer block;
+    read_blocks(&block, block_number, 1);
+    uint32_t offset = 0;
+    bool found = false;
 
+    while (offset < BLOCK_SIZE) {
+        struct EXT2DirectoryEntry *current = (struct EXT2DirectoryEntry *)(block.buf + offset);
+        if (current->inode == entry->inode && 
+            current->name_len == request->name_len &&
+            memcmp((char *)(current + 1), request->name, request->name_len) == 0) {
+            current->inode = 0; // Mark as free
+            write_blocks(&block, block_number, 1);
+            found = true;
+            break;
+        }
+        offset += current->rec_len;
+    }
+    return found;
+}
+
+int8_t delete(struct EXT2DriverRequest request) {
+    // Validate input parameters
+    if (request.name == NULL || request.name_len == 0) {
+        return -1; // Invalid request
+    }
+
+    // Read parent inode
+    struct EXT2Inode parent_inode;
+    read_inode(request.parent_inode, &parent_inode);
+
+    // Check if parent is a directory
+    if ((parent_inode.i_mode & 0xF000) != 0x4000) {
+        return 3; // Parent is not a directory
+    }
+
+    // Find the directory entry in parent
+    struct EXT2DirectoryEntry entry;
+    bool found = find_directory_entry(&parent_inode, request.name, request.name_len, &entry);
+    if (!found) {
+        return 2; // Entry not found
+    }
+
+    // Read child inode to check type
+    struct EXT2Inode child_inode;
+    read_inode(entry.inode, &child_inode);
+
+    // If it's a directory, ensure it's empty
+    if ((child_inode.i_mode & 0xF000) == 0x4000) { // Directory
+        if (!is_directory_empty(entry.inode)) {
+            return 1; // Directory not empty
+        }
+    }
+
+    // Deallocate the inode and its blocks
+    deallocate_node(entry.inode);
+
+    // Function to search and mark entry in a block
+
+    // Check direct blocks
+    for (int i = 0; i < 12; i++) {
+        if (parent_inode.i_block[i] != 0 && mark_entry_in_block(parent_inode.i_block[i], &entry, &request)) {
+            return 0; // Success
+        }
+    }
+
+    // Check singly indirect block
+    if (parent_inode.i_block[12] != 0) {
+        uint32_t indirect[BLOCK_SIZE / sizeof(uint32_t)];
+        read_blocks(indirect, parent_inode.i_block[12], 1);
+
+        for (uint32_t i = 0; i < BLOCK_SIZE / sizeof(uint32_t); i++) {
+            if (indirect[i] != 0 && mark_entry_in_block(indirect[i], &entry, &request)) {
+                return 0;
+            }
+        }
+    }
+
+    // Check doubly indirect block
+    if (parent_inode.i_block[13] != 0) {
+        uint32_t doubly_indirect[BLOCK_SIZE / sizeof(uint32_t)];
+        read_blocks(doubly_indirect, parent_inode.i_block[13], 1);
+
+        for (uint32_t i = 0; i < BLOCK_SIZE / sizeof(uint32_t); i++) {
+            if (doubly_indirect[i] == 0) continue;
+
+            uint32_t singly_indirect[BLOCK_SIZE / sizeof(uint32_t)];
+            read_blocks(singly_indirect, doubly_indirect[i], 1);
+
+            for (uint32_t j = 0; j < BLOCK_SIZE / sizeof(uint32_t); j++) {
+                if (singly_indirect[j] != 0 && mark_entry_in_block(singly_indirect[j], &entry, &request)) {
+                    return 0;
+                }
+            }
+        }
+    }
+
+    return -1; // Entry not found
 }
 
 /* =============================== MEMORY ==========================================*/
