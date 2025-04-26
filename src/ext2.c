@@ -593,13 +593,34 @@ int8_t write(struct EXT2DriverRequest *request){
     
     // Write file 
     if (!request->is_directory){
-        new_inode.i_mode = 0x8000 | (1 << 9);  // Temporary permission
-        new_inode.i_size = request->buffer_size;
-        new_inode.i_blocks = blocks_needed;
+        // Alokasikan memori untuk inode baru
+        struct EXT2Inode temp_inode = {0};
+        new_inode = &temp_inode;
 
-        allocate_node_blocks(request->buf, &new_inode, inode_to_bgd(request->parent_inode));
-        sync_node(&new_inode, new_inode_number);
+        // Set permission: 0x8000 untuk file reguler | 0x0200 = user write permission
+        new_inode->i_mode = 0x8000 | 0x0200;
+
+        // Ukuran file
+        new_inode->i_size = request->buffer_size;
+
+        // Jumlah blok (dalam 512-byte blocks, EXT2 i_blocks menyimpan ukuran dalam 512-byte block)
+        new_inode->i_blocks = blocks_needed * (BLOCK_SIZE / 512);
+
+
+
+        // Alokasikan blok dan isi dengan data
+        allocate_node_blocks(request->buf, new_inode, inode_to_bgd(request->parent_inode));
+
+        // Buat entri direktori untuk file baru
+        struct EXT2DirectoryEntry new_entry;
+        new_entry.inode = new_inode_number;
+        new_entry.rec_len = get_entry_record_len(request->name_len);
+        new_entry.name_len = request->name_len;
+        new_entry.file_type = 1; // 1 = file reguler
+
+        add_directory_entry(&new_entry, request->name, request->parent_inode);
     }
+
 
     // Write directory
     else {
