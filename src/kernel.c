@@ -61,7 +61,9 @@ void kernel_setup(void) {
     struct EXT2Inode root;
     read_inode(2, &root);
 
-    // struct BlockBuffer b;
+    struct EXT2BlockGroupDescriptorTable b;
+    read_blocks(&b, 2, 1);
+
     // for (int i = 0; i < 512; i++) b.buf[i] = i % 16;
     // write_blocks(&b, 17, 1);
     // while (true);

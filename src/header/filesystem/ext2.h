@@ -469,4 +469,6 @@ bool exists_n_free_blocks(int n);
 void add_directory_entry(struct EXT2DirectoryEntry dir, char *name, uint32_t inode_number);
 
 bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
+
+void updateBGDTInode(uint32_t inode_number, bool is_update);
 #endif

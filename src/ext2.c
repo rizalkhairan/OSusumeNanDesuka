@@ -221,8 +221,9 @@ void create_ext2(void){
     };
     memset(root_inode.i_block, 0x0, 15 * sizeof(uint32_t));
     sync_node(&root_inode, 2);
-    bgdt.table[0].bg_free_inodes_count -= 1; // TODO: when to update global metadata?
+    updateBGDTInode(2, true); // TODO: when to update global metadata?
     bgdt.table[0].bg_used_dirs_count += 1;
+    
     sb.s_free_inodes_count -= 1;
 
     init_directory_table(&root_inode, 2, 2);
@@ -367,9 +368,6 @@ int8_t write(struct EXT2DriverRequest *request){
     // Validate whether there's an available inode
     uint32_t new_inode_number = allocate_node();
     if(new_inode_number == 0) return -1;
-
-    struct EXT2Inode new_inode;    
-    // read_inode(new_inode_number, new_inode);
     
     // Write file 
     if (!request->is_directory){
@@ -398,6 +396,8 @@ int8_t write(struct EXT2DriverRequest *request){
         new_entry.file_type = 1; // 1 = file reguler
 
         add_directory_entry(new_entry, request->name, request->parent_inode);
+        // Sync the inode table and bitmap to disk
+        sync_node(new_inode, new_inode_number);
     }
 
 
@@ -412,18 +412,21 @@ int8_t write(struct EXT2DriverRequest *request){
         };
         
         // Allocate corresponding Inode for the new directory
-        new_inode.i_mode = 0x4000;
-        new_inode.i_size = request->buffer_size;
-        new_inode.i_blocks = 1;
+        struct EXT2Inode new_inode = {
+            new_inode.i_mode = 0x4000,
+            new_inode.i_size = request->buffer_size,
+            new_inode.i_blocks = 1,
+        };
         init_directory_table(&new_inode, new_inode_number, request->parent_inode);
         sync_node(&new_inode, new_inode_number);
 
         // Add the new directory to its parent's directory entry
         add_directory_entry(new_entry, request->name, request->parent_inode);
+        // Sync the inode table and bitmap to disk
+        sync_node(&new_inode, new_inode_number);
+        updateBGDTInode(new_inode_number, true);
     }
 
-    // Sync the inode table and bitmap to disk
-    sync_node(&new_inode, new_inode_number);
     // Should parent be synced too?
     struct EXT2Inode *parent;
     read_inode(request->parent_inode, parent);
@@ -466,6 +469,7 @@ int8_t delete(struct EXT2DriverRequest request) {
 
     // Deallocate the inode and its blocks
     deallocate_node(entry.inode);
+    updateBGDTInode(entry.inode, false);
 
     // Function to search and mark entry in a block
 
@@ -1064,6 +1068,7 @@ void add_directory_entry(struct EXT2DirectoryEntry dir, char *name, uint32_t ino
     // If singly indirect block is not used, create the indirect block, then write the directory entry
     if (source_inode.i_block[12] == 0) {
         source_inode.i_block[12] = find_free_anywhere(inode_to_bgd(inode_number)); // indirect block
+        sync_node(&source_inode, inode_number);
         if (!source_inode.i_block[12]) return;
 
         uint32_t pointer_per_block = BLOCK_SIZE / sizeof(uint32_t);
@@ -1135,6 +1140,7 @@ void add_directory_entry(struct EXT2DirectoryEntry dir, char *name, uint32_t ino
         if(!exists_n_free_blocks(3)) return;
         
         source_inode.i_block[13] = find_free_anywhere(inode_to_bgd(inode_number));
+        sync_node(&source_inode, inode_number);
         if (!source_inode.i_block[13]) return;
         
         uint32_t pointer_per_block = BLOCK_SIZE / sizeof(uint32_t);
@@ -1272,3 +1278,24 @@ bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry
     return found;
 }
 
+<<<<<<< HEAD
+=======
+void updateBGDTInode(uint32_t inode_number, bool is_update){
+    uint32_t inode_location = inode_to_bgd(inode_number);
+    
+    if(is_update) bgdt.table[inode_location].bg_free_inodes_count--; // update
+    else bgdt.table[inode_location].bg_free_inodes_count++; // delete
+    
+    struct BlockBuffer b;
+    memset(b.buf, 0, BLOCK_SIZE);
+    memcpy(b.buf, &bgdt, sizeof(struct EXT2BlockGroupDescriptorTable));
+    for (uint8_t group=0;group<GROUPS_COUNT;group++) {
+        if (group == 0) {
+            write_blocks(b.buf, 2, 1);
+        }
+        else {
+            write_blocks(b.buf, group * BLOCKS_PER_GROUP, 1);
+        }
+    }
+}
+>>>>>>> 98c7dc0 (feat: helper to update bgdt free inode counter)
