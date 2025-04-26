@@ -27,8 +27,15 @@ char *get_entry_name(void *entry){
 }
 
 struct EXT2DirectoryEntry *get_directory_entry(void *ptr, uint32_t offset){
-    struct EXT2DirectoryEntry* entry = (struct EXT2DirectoryEntry*)((uint8_t*)ptr + offset);
-    return entry;
+    if (offset < 0) {
+        return NULL;
+    }
+    if (offset > 0) {
+        struct EXT2DirectoryEntry *current_entry = (struct EXT2DirectoryEntry*) ptr; 
+        struct EXT2DirectoryEntry *next_entry = ptr + current_entry->rec_len;
+        return get_directory_entry(next_entry, offset-1);
+    }
+    return (struct EXT2DirectoryEntry*) ptr;
 }
 
 struct EXT2DirectoryEntry *get_next_directory_entry(struct EXT2DirectoryEntry *entry){
