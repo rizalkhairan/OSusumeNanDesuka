@@ -6,6 +6,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+// --- EXT2 FILE SYSTEM GLOBAL VARIABLES --- //
+// All informations regarding filesystem referes here
+// Might be temporary, for convenience
+extern struct EXT2Superblock sb;
+extern struct EXT2BlockGroupDescriptorTable bgdt;
 
 /* -- IF2130 File System constants -- */
 #define BOOT_SECTOR 0 // legacy from FAT32 filesystem IF2130 OS
@@ -18,7 +23,6 @@
 #define INODES_TABLE_BLOCK_COUNT 16u 
 #define INODES_PER_GROUP (INODES_PER_TABLE * INODES_TABLE_BLOCK_COUNT) // number of inodes per group
 
-extern struct EXT2BlockGroupDescriptorTable bgdt; // block group descriptor table
 
 /**
  * inodes constant 
@@ -393,13 +397,41 @@ void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t prefered_b
  */
 void sync_node(struct EXT2Inode *node, uint32_t inode);
 
+
+/* =============================== HELPER ======================================== */
+
+/**
+ * @brief Copy all data pointed by an inode into a buffer (all types of inodes)
+ * @param inode inode on which the data is pointed by
+ * @param buf data buffer to be copied into
+ * @param buffer_size data buffer size
+ */
+void load_inode_data(struct EXT2Inode* inode,  void* buf, uint32_t buffer_size);
+
+/**
+ * @brief Copy data from a block into a buffer
+ * @param block_number block on which the data is extracted from
+ * @param depth depth of the data. 0 = direct, 1 = indirect, 2 = doubly indirect, 3 = triply indirect
+ * @param buf data buffer to be copied into
+ * @param buffer_size data buffer size
+ * @return number of bytes loaded
+ */
+uint32_t load_block_data(uint32_t block_number, uint8_t depth, void* buf, uint32_t buffer_size);
+
 /**
  * @brief Helper to modify block bitmap
  * @param bitmap block buffer
- * @param bit bit offset
+ * @param bit bit offset in range (0, BLOCK_SIZE-1)
  * @param val bit value
  */
 static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value);
+
+/**
+ * @brief find a free block in the given bgd
+ * @param bgd_index index of the block group descriptor
+ * @return block number
+ */
+static uint32_t find_free_in_bgd(uint32_t bgd_index);
 
 /**
  * @brief find an inode from an inode number
@@ -417,5 +449,14 @@ void read_inode(uint32_t inode_num, struct EXT2Inode *out);
  */
 bool find_directory_entry(struct EXT2Inode *dir_inode, char *name, uint8_t name_len, struct EXT2DirectoryEntry *result);
 
+// Helper to find first free block in group, or anywhere else if one exists
+uint32_t find_free_anywhere(uint32_t bgd_index);
 
+// Check whether there's n blocks available to store data inside the disk
+bool exists_n_free_blocks(int n);
+
+// add dir and its name to directory entry in inode_number
+// TODO: Should there be any validation here (thus, refactoring this to an int for returning error code),
+// or should this just assume that everything will happen perfectly (enough block, etc)
+void add_directory_entry(struct EXT2DirectoryEntry dir, char *name, uint32_t inode_number);
 #endif
