@@ -22,7 +22,7 @@ void kernel_setup(void) {
     initialize_filesystem_ext2();
     
     int x = 555;
-    for(int i=0;i<63;i++){
+    for(int i=0;i<100;i++){
         struct EXT2DriverRequest req = {
             .name = "File  ",
             .name_len = 6,

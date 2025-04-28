@@ -383,7 +383,7 @@ int8_t write(struct EXT2DriverRequest *request){
         new_inode->i_size = request->buffer_size;
 
         // Jumlah blok (dalam 512-byte blocks, EXT2 i_blocks menyimpan ukuran dalam 512-byte block)
-        new_inode->i_blocks = blocks_needed * (BLOCK_SIZE / 512);
+        new_inode->i_blocks = blocks_needed;
 
         // Alokasikan blok dan isi dengan data
         allocate_node_blocks(request->buf, new_inode, inode_to_bgd(request->parent_inode));
@@ -1046,7 +1046,7 @@ void add_directory_entry(struct EXT2DirectoryEntry dir, char *name, uint32_t ino
         
         // check if there's a space for the new directory entry
         uint32_t offset = 0;
-        while(current_dir->inode != 0 && offset <= BLOCK_SIZE){
+        while(current_dir->inode != 0 && offset < BLOCK_SIZE){
             offset += current_dir->rec_len;
             current_dir = get_next_directory_entry(current_dir);
         }
