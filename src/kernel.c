@@ -9,6 +9,7 @@
 #include "header/terminal/terminal.h"
 #include "header/filesystem/disk.h"
 #include "header/filesystem/ext2.h"
+#include "header/stdlib/string.h"
 
 void kernel_setup(void) {
     load_gdt(&_gdt_gdtr);
@@ -20,49 +21,22 @@ void kernel_setup(void) {
 
     initialize_filesystem_ext2();
     
-    int x;
-    // for(int i=0;i<12;i++){
-    struct EXT2DriverRequest req = {
-        .name = "Since Nijika is the paragon of human virtue without equal past or present, she is most resplendent in love, tributes and accolades. Waking or sleeping, I must not forget Nijika’s great boon and in order to return her favour by day and by night aaaaaaaaaaa",
-        .name_len = 255,
-        .parent_inode = 2,
-        .buffer_size = 1,
-        .is_directory = true,
-    };
-    x = write(&req);
-
-    // }
-    struct EXT2DriverRequest reqaa = {
-        .name = "Sinse Nijika is the paragon of human virtue without equal past or present, she is most resplendent in love, tributes and accolades. Waking or sleeping, I must not forget Nijika’s great boon and in order to return her favour by day and by night aaaaaaaaaaa",
-        .name_len = 255,
-        .parent_inode = 2,
-        .buffer_size = 1,
-        .is_directory = true,
-    };
-    x = write(&reqaa);
-
-    struct BlockBuffer blok[5];
-    struct EXT2DriverRequest req2 = {
-        .buf = blok[0].buf,
-        .name = ".",
-        .name_len = 1,
-        .parent_inode = 1,
-        .buffer_size = BLOCK_SIZE,
-        .is_directory = true,
-    };
-    read_directory(&req2);
-
-    struct EXT2DirectoryEntry* entry = get_directory_entry(blok[0].buf, 0);
-    char* name = get_entry_name(entry);
-    for (int i=0;i<entry->name_len;i++) {
-        framebuffer_write(0, i, name[i], 0x07, 0x00);
+    int x = 555;
+    for(int i=0;i<63;i++){
+        struct EXT2DriverRequest req = {
+            .name = "File  ",
+            .name_len = 6,
+            .parent_inode = 2,
+            .buffer_size = 1,
+            .is_directory = true,
+        };
+        memset(req.name+4, (char)(i/10+48), 1);
+        memset(req.name+5, (char)(i%10+48), 1);
+        if(i==62){
+            int kusanagi = 39;
+        }
+        x = write(&req);
     }
-    
-    struct EXT2Inode root;
-    read_inode(2, &root);
-
-    struct EXT2BlockGroupDescriptorTable b;
-    read_blocks(&b, 2, 1);
 
     // for (int i = 0; i < 512; i++) b.buf[i] = i % 16;
     // write_blocks(&b, 17, 1);

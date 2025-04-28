@@ -337,9 +337,9 @@ int8_t write(struct EXT2DriverRequest *request){
     if ((parent_inode.i_mode & 0xF000) != 0x4000) return 2;
 
     // Validate if file/folder already exists
-    struct BlockBuffer *dir_entry;
-    read_blocks(dir_entry, parent_inode.i_block[0], 1);
-    struct EXT2DirectoryEntry *ptr = get_directory_entry(dir_entry, 0);
+    struct BlockBuffer dir_entry;
+    read_blocks(&dir_entry, parent_inode.i_block[0], 1);
+    struct EXT2DirectoryEntry *ptr = get_directory_entry(&dir_entry, 0);
     struct EXT2DirectoryEntry *new_ptr = ptr;
     while (true){
         ptr = new_ptr;
