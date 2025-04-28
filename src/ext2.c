@@ -1245,15 +1245,30 @@ bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry
 
     while (offset < BLOCK_SIZE) {
         struct EXT2DirectoryEntry *current = (struct EXT2DirectoryEntry *)(block.buf + offset);
+        
+        // Check if this entry matches the one we're trying to delete
         if (current->inode == entry->inode && 
             current->name_len == request->name_len &&
             memcmp((char *)(current + 1), request->name, request->name_len) == 0) {
-            current->inode = 0; // Mark as free
+            
+            if (offset > 0) {
+                // Merge with previous entry (if not the first entry in the block)
+                struct EXT2DirectoryEntry *prev = (struct EXT2DirectoryEntry *)(block.buf + offset - current->rec_len);
+                prev->rec_len += current->rec_len;
+            } else {
+                // If this is the first entry, just set inode to 0 to mark as free
+                current->inode = 0;
+            }
+
+            // Write back the modified block with the updated entry
             write_blocks(&block, block_number, 1);
             found = true;
             break;
         }
+
         offset += current->rec_len;
     }
+
     return found;
 }
+
