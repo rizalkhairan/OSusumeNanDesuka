@@ -1278,8 +1278,6 @@ bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry
     return found;
 }
 
-<<<<<<< HEAD
-=======
 void updateBGDTInode(uint32_t inode_number, bool is_update){
     uint32_t inode_location = inode_to_bgd(inode_number);
     
@@ -1298,4 +1296,3 @@ void updateBGDTInode(uint32_t inode_number, bool is_update){
         }
     }
 }
->>>>>>> 98c7dc0 (feat: helper to update bgdt free inode counter)
