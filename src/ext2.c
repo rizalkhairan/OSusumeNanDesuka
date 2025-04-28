@@ -521,10 +521,11 @@ int8_t delete(struct EXT2DriverRequest request) {
 uint32_t allocate_node(void){
     uint32_t inode_number = 0;
     struct BlockBuffer bitmap;
-    for (int i=0; i<GROUPS_COUNT; ++i){
+    for (int i=0; i<GROUPS_COUNT; i++){
         struct EXT2BlockGroupDescriptor *bgd = &bgdt.table[i];
+        memset(bitmap.buf, 0x0, BLOCK_SIZE);
         read_blocks(bitmap.buf, bgd->bg_inode_bitmap, 1);
-        for (uint32_t local_inode=0;local_inode<INODES_PER_GROUP;local_inode++) {
+        for (uint32_t local_inode=1;local_inode<=INODES_PER_GROUP;local_inode++) {
             if (!is_bitmap_set(bitmap.buf, local_inode)) {
                 return local_inode + (i * INODES_PER_GROUP);
             }
@@ -907,7 +908,7 @@ uint32_t load_block_data(uint32_t block_number, uint8_t depth, void* buf, uint32
 }
 
 // Helper to modify block bitmap
-static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value) {
+void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value) {
     if (!bitmap || bit >= BLOCKS_PER_GROUP) return;
     uint32_t byte = bit / 8;
     uint8_t mask = 1 << (bit % 8);

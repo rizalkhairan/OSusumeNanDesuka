@@ -424,7 +424,7 @@ uint32_t load_block_data(uint32_t block_number, uint8_t depth, void* buf, uint32
  * @param bit bit offset in range (0, BLOCK_SIZE-1)
  * @param val bit value
  */
-static void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value);
+void set_bitmap_bit(struct BlockBuffer *bitmap, uint32_t bit, bool value);
 
 /**
  * @brief Helper to modify block bitmap
