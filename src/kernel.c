@@ -22,23 +22,26 @@ void kernel_setup(void) {
     initialize_filesystem_ext2();
     
     int x = 555;
-    for(int i=0;i<999;i++){
+    for(int i=0;i<1821;i++){
         struct EXT2DriverRequest req = {
-            .name = "File   ",
-            .name_len = 7,
+            .name = "File    ",
+            .name_len = 8,
             .parent_inode = 2,
             .buffer_size = 1,
             .is_directory = true,
         };
-        memset(req.name+4, (char)(i/100+48), 1);
-        memset(req.name+5, (char)((i/10)%10+48), 1);
-        memset(req.name+6, (char)(i%10+48), 1);
-        if(i==109){
+        memset(req.name+4, (char)(i/1000+48), 1);
+        memset(req.name+5, (char)((i/100)%10+48), 1);
+        memset(req.name+6, (char)((i/10)%10+48), 1);
+        memset(req.name+7, (char)(i%10+48), 1);
+        if(i==1820){
             int kusanagi = 39;
         }
         x = write(&req);
     }
 
+    struct EXT2Inode root;
+    read_inode(2, &root);
 
     struct BlockBuffer b;
     set_bitmap_bit(b.buf, 112, true);
