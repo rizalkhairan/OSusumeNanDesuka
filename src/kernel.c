@@ -22,7 +22,7 @@ void kernel_setup(void) {
     initialize_filesystem_ext2();
     
     int x = 555;
-    for(int i=0;i<1821;i++){
+    for(int i=0;i<900;i++){
         struct EXT2DriverRequest req = {
             .name = "File    ",
             .name_len = 8,
@@ -40,19 +40,52 @@ void kernel_setup(void) {
         x = write(&req);
     }
 
-    struct EXT2Inode root;
-    read_inode(2, &root);
+    // struct EXT2Inode root;
+    // read_inode(2, &root);
 
-    struct BlockBuffer b;
-    set_bitmap_bit(b.buf, 112, true);
-    framebuffer_write(2, 0, is_bitmap_set(b.buf, 112)+48, 0x07, 0x00);
-    framebuffer_write(2, 3, 'a', 0x07, 0x00);
-    framebuffer_write(2, 0, is_bitmap_set(b.buf, 112)+48, 0x07, 0x00);
+    // struct BlockBuffer b;
+    // set_bitmap_bit(b.buf, 112, true);
+    // framebuffer_write(2, 0, is_bitmap_set(b.buf, 112)+48, 0x07, 0x00);
+    // framebuffer_write(2, 3, 'a', 0x07, 0x00);
+    // framebuffer_write(2, 0, is_bitmap_set(b.buf, 112)+48, 0x07, 0x00);
     // for (int i = 0; i < 512; i++) b.buf[i] = i % 16;
     // write_blocks(&b, 17, 1);
     // while (true);
 
-    /*
+
+
+    /* -------------------------------------- */
+    /* Inodes */
+    // uint32_t inode_number = allocate_node();
+    // uint32_t iter = 0;
+    // struct EXT2Inode inode_temp = {
+    //     .i_mode = EXT2_S_IFDIR,
+    //     .i_size = BLOCK_SIZE,
+    //     .i_blocks = 0
+    // };
+    // memset(inode_temp.i_block, 0x0, 15 * sizeof(uint32_t));
+    // while (inode_number != 0 && iter < 10000) {
+    //     sync_node(&inode_temp, inode_number);
+    //     inode_number = allocate_node();
+    //     iter++;
+    // }
+    // sync_node(&inode_temp, inode_number);
+
+
+    // framebuffer_write(5, 5, (char) iter%10+'0', 0x07, 0x00);
+    // framebuffer_write(5, 4, (char) (iter/10%10)+'0', 0x07, 0x00);
+    // framebuffer_write(5, 3, (char) (iter/100%10)+'0', 0x07, 0x00);
+
+    // framebuffer_write(6, 5, (char) bgdt.table[0].bg_free_inodes_count%10+'0', 0x07, 0x00);
+    // framebuffer_write(6, 4, (char) bgdt.table[0].bg_free_inodes_count/10%10+'0', 0x07, 0x00);
+    // framebuffer_write(6, 3, (char) bgdt.table[0].bg_free_inodes_count/100%10+'0', 0x07, 0x00);
+
+    // framebuffer_write(7, 5,(char) allocate_node()+'0', 0x07, 0x00);
+
+    // framebuffer_write(8, 5, (char) bgdt.table[0].bg_inode_bitmap%10+'0', 0x07, 0x00);
+    // framebuffer_write(8, 4, (char) bgdt.table[0].bg_inode_bitmap/10%10+'0', 0x07, 0x00);
+
+
     char block[] = {"Blocks per group: "};
     char inode[] = {"Inodes per group: "};
     char inode_per_table[] = {"Inodes per table: "};
@@ -145,7 +178,6 @@ void kernel_setup(void) {
     
     bool equal_group_count = (blocks_per_group == blocks_per_group_macro);
     framebuffer_write(19, 0, (char) (equal_group_count ? 'T' : 'F'), 0x07, 0x00);
-    */
     
     // struct EXT2DriverRequest reqaa = {
     //     .name = "",

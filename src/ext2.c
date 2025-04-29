@@ -163,7 +163,7 @@ void create_ext2(void){
                 .bg_pad = 0,
                 .bg_reserved = {0,0,0}
             };
-            bgdt.table[i] = bgd_template;
+            memcpy(&bgdt.table[0], &bgd_template, sizeof(struct EXT2BlockGroupDescriptor));
         }
         else {
             struct EXT2BlockGroupDescriptor bgd_template = {
@@ -176,7 +176,7 @@ void create_ext2(void){
                 .bg_pad = 0,
                 .bg_reserved = {0,0,0}
             };
-            bgdt.table[i] = bgd_template;
+            memcpy(&bgdt.table[i], &bgd_template, sizeof(struct EXT2BlockGroupDescriptor));
         }
     }
 
@@ -519,16 +519,20 @@ int8_t delete(struct EXT2DriverRequest request) {
 // Return inode number
 // This function does not have any side effects (memory/disk modification)
 uint32_t allocate_node(void){
-    uint32_t inode_number = 0;
+    // Check each group's inode bitmap
     struct BlockBuffer bitmap;
-    for (int i=0; i<GROUPS_COUNT; i++){
-        struct EXT2BlockGroupDescriptor *bgd = &bgdt.table[i];
-        memset(bitmap.buf, 0x0, BLOCK_SIZE);
-        read_blocks(bitmap.buf, bgd->bg_inode_bitmap, 1);
-        for (uint32_t local_inode=1;local_inode<=INODES_PER_GROUP;local_inode++) {
-            if (!is_bitmap_set(bitmap.buf, local_inode)) {
-                return local_inode + (i * INODES_PER_GROUP);
-            }
+    uint32_t group = 0;
+    write_blocks(bitmap.buf, bgdt.table[group].bg_inode_bitmap, 1);
+    for (uint32_t inode_number=1; inode_number<=(GROUPS_COUNT * INODES_PER_GROUP); inode_number++){
+        // Check if the correct group bitmap is loaded
+        if (group != inode_to_bgd(inode_number)) {
+            write_blocks(bitmap.buf, bgdt.table[group].bg_inode_bitmap, 1);
+            group = inode_to_bgd(inode_number);
+            read_blocks(&bitmap, bgdt.table[group].bg_inode_bitmap, 1);
+        }
+        
+        if (!is_bitmap_set(bitmap.buf, inode_to_local(inode_number))) {
+            return inode_number;
         }
     }
 
@@ -835,6 +839,8 @@ void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t preferred_
 
 // Write inode and its bitmap to disk
 void sync_node(struct EXT2Inode *node, uint32_t inode){
+    if (inode < 1 || inode > INODES_PER_GROUP * GROUPS_COUNT) { return; }
+
     uint32_t bgd_index = inode_to_bgd(inode);
     uint32_t local_index = inode_to_local(inode);
     struct EXT2BlockGroupDescriptor *bgd = &bgdt.table[bgd_index];
@@ -842,7 +848,7 @@ void sync_node(struct EXT2Inode *node, uint32_t inode){
 
     // Inode bitmap
     read_blocks(block.buf, bgd->bg_inode_bitmap, 1);
-    set_bitmap_bit(block.buf, inode, true);
+    set_bitmap_bit(block.buf, local_index, true);
     write_blocks(block.buf, bgd->bg_inode_bitmap, 1);
 
     // Inode table
@@ -851,6 +857,8 @@ void sync_node(struct EXT2Inode *node, uint32_t inode){
     read_blocks(block.buf, inode_table_block, 1);
     memcpy(block.buf + offset_in_block, node, INODE_SIZE);
     write_blocks(block.buf, inode_table_block, 1);
+    bgd->bg_free_inodes_count--;
+    sb.s_free_inodes_count--;
 }
 
 
