@@ -13,6 +13,7 @@
         "iterator": "c",
         "string_view": "c",
         "format": "c",
-        "span": "c"
+        "span": "c",
+        "kernel-entrypoint.h": "c"
     },
 }

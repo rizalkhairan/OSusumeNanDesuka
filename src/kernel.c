@@ -10,8 +10,10 @@
 #include "header/filesystem/disk.h"
 #include "header/filesystem/ext2.h"
 #include "header/stdlib/string.h"
+#include"header/memory/paging.h"
 
 void kernel_setup(void) {
+    map_identity_vga(&_paging_kernel_page_directory);
     load_gdt(&_gdt_gdtr);
     pic_remap();
     initialize_idt();
@@ -38,24 +40,6 @@ void kernel_setup(void) {
             int kusanagi = 39;
         }
         x = write(&req0);
-    }
-
-    for(int i=0;i<200;i++){
-        struct EXT2DriverRequest req = {
-            .name = "File    ",
-            .name_len = 8,
-            .parent_inode = 2,
-            .buffer_size = 8,
-            .is_directory = true,
-        };
-        memset(req.name+4, (char)(i/1000+48), 1);
-        memset(req.name+5, (char)((i/100)%10+48), 1);
-        memset(req.name+6, (char)((i/10)%10+48), 1);
-        memset(req.name+7, (char)(i%10+48), 1);
-        if(i==24){
-            int kusanagi = 39;
-        }
-        x = write(&req);
     }
 
 

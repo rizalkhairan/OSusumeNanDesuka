@@ -149,4 +149,6 @@ bool paging_allocate_user_page_frame(struct PageDirectory *page_dir, void *virtu
  */
 bool paging_free_user_page_frame(struct PageDirectory *page_dir, void *virtual_addr);
 
+void map_identity_vga(struct PageDirectory *page_dir);
+
 #endif

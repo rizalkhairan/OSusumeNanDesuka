@@ -115,3 +115,13 @@ bool paging_free_user_page_frame(struct PageDirectory *page_dir, void *virtual_a
     return true;
 }
 
+void map_identity_vga(struct PageDirectory *page_dir) {
+    struct PageDirectoryEntryFlag flag = {
+        .present_bit       = 1,
+        .write_bit         = 1,
+        .user_bit          = 1, // Kernel-only
+        .use_pagesize_4_mb = 1
+    };
+    update_page_directory_entry(page_dir, (void *)0x00000000, (void *)0x00000000, flag);
+}
+
