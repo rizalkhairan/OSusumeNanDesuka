@@ -40,6 +40,32 @@ void kernel_setup(void) {
         x = write(&req);
     }
 
+
+    // Write File
+    // char file[] = "FileXXXX has been written";
+    // for (int i=0;i<1;i++) {
+    //     struct BlockBuffer file_buf;
+    //     memset(file_buf.buf, 0, BLOCK_SIZE);
+    //     memcpy(file_buf.buf, file, sizeof(file));
+    //     memset(file_buf.buf+4, (char)(i/1000+48), 1);
+    //     memset(file_buf.buf+5, (char)((i/100)%10+48), 1);
+    //     memset(file_buf.buf+6, (char)((i/10)%10+48), 1);
+    //     memset(file_buf.buf+7, (char)(i%10+48), 1);
+    //     struct EXT2DriverRequest req = {
+    //         .buf = file_buf.buf,
+    //         .name = "File    ",
+    //         .name_len = 8,
+    //         .parent_inode = 2,
+    //         .buffer_size = sizeof(file),
+    //         .is_directory = false,
+    //     };
+    //     memset(req.name+4, (char)(i/1000+48), 1);
+    //     memset(req.name+5, (char)((i/100)%10+48), 1);
+    //     memset(req.name+6, (char)((i/10)%10+48), 1);
+    //     memset(req.name+7, (char)(i%10+48), 1);
+    //     int8_t result = write(&req);
+    // }
+
     // struct EXT2Inode root;
     // read_inode(2, &root);
 
