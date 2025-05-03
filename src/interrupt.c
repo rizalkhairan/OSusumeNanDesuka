@@ -1,6 +1,7 @@
 #include "header/interrupt/interrupt.h"
 #include "header/cpu/portio.h"
 #include "header/keyboard/keyboard.h"
+#include "header/cpu/gdt.h"
 
 void io_wait(void) {
     out(0x80, 0);
@@ -46,4 +47,16 @@ void main_interrupt_handler(struct InterruptFrame frame) {
 
 void activate_keyboard_interrupt(void) {
     out(PIC1_DATA, in(PIC1_DATA) & ~(1 << IRQ_KEYBOARD));
+}
+
+// Definisi variabel global TSS (hanya satu instance untuk seluruh sistem)
+struct TSSEntry _interrupt_tss_entry = {
+    .ss0 = GDT_KERNEL_DATA_SEGMENT_SELECTOR, 
+};
+
+// Update esp0 di TSS dengan stack pointer kernel saat ini
+void set_tss_kernel_current_stack(void) {
+    uint32_t stack_ptr;
+    __asm__ volatile ("mov %%ebp, %0" : "=r"(stack_ptr));  
+    _interrupt_tss_entry.esp0 = stack_ptr + 8;  
 }
