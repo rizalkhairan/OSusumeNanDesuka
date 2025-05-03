@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <stdbool.h>
-
 #include "header/filesystem/ext2.h"
 #include "header/filesystem/disk.h"
 #include "header/stdlib/string.h"
@@ -10,7 +8,6 @@
 // Global variables
 uint8_t *image_storage;
 uint8_t *file_buffer;
-uint8_t *read_buffer;
 
 int main(int argc, char *argv[]) {
     if (argc < 4) {
@@ -21,7 +18,6 @@ int main(int argc, char *argv[]) {
     // Read storage into memory, requiring 4 MB memory
     image_storage = malloc(4*1024*1024);
     file_buffer = malloc(4*1024*1024);
-    read_buffer = malloc(4*1024*1024);
     FILE *fptr = fopen(argv[3], "r");
     fread(image_storage, 4*1024*1024, 1, fptr);
     fclose(fptr);
@@ -45,12 +41,10 @@ int main(int argc, char *argv[]) {
     initialize_filesystem_ext2();
     char *name = argv[1];
     size_t filename_length = strlen(name);
-    bool is_replace = true; // Set your replacement policy here
     
     struct EXT2DriverRequest request;
-    struct EXT2DriverRequest reqread;
     printf("Filename       : %s\n", name);
-    printf("Filename length: %zu\n", filename_length);
+    printf("Filename length: %d\n", filename_length);
 
     request.buf = file_buffer;
     request.buffer_size = filesize;
@@ -59,29 +53,7 @@ int main(int argc, char *argv[]) {
     request.is_directory = false;
     sscanf(argv[2], "%u", &request.parent_inode);
 
-    reqread = request;
-    reqread.buf = read_buffer;
-    int retcode = read(reqread);
-    if (retcode == 0) {
-        bool same = true;
-        for (uint32_t i = 0; i < filesize; i++) {
-            if (read_buffer[i] != file_buffer[i]) {
-                printf("not same\n");
-                same = false;
-                break;
-            }
-        }
-        if (same) {
-            printf("same\n");
-        }
-    }
-
-    retcode = write(&request);
-    if (retcode == 1 && is_replace) {
-        retcode = delete(request);
-        retcode = write(&request);
-    }
-    
+    int retcode = write(&request);
     if (retcode == 0) {
         puts("Write success");
     } else if (retcode == 1) {
@@ -97,13 +69,12 @@ int main(int argc, char *argv[]) {
     fwrite(image_storage, 4 * 1024 * 1024, 1, fptr);
     fclose(fptr);
 
-    // Clean up
     free(image_storage);
     free(file_buffer);
-    free(read_buffer);
 
     return 0;
 }
+
 
 //original from kit
 /*
