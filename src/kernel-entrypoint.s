@@ -85,3 +85,4 @@ set_tss_register:
     ltr ax
     ret
 
+section .note.GNU-stack noalloc noexec nowrite progbits
