@@ -521,11 +521,14 @@ int8_t delete(struct EXT2DriverRequest request) {
 uint32_t allocate_node(void){
     // Check each group's inode bitmap
     struct BlockBuffer bitmap;
-    uint32_t group = 0;
+    uint32_t group = GROUPS_COUNT;  // Initial invalid group
     read_blocks(bitmap.buf, bgdt.table[group].bg_inode_bitmap, 1);
     for (uint32_t inode_number=1; inode_number<=(GROUPS_COUNT * INODES_PER_GROUP); inode_number++){
         // Check if the correct group bitmap is loaded
-        read_blocks(bitmap.buf, bgdt.table[inode_to_bgd(inode_number)].bg_inode_bitmap, 1);
+        if (group != inode_to_bgd(inode_number)) {
+            group = inode_to_bgd(inode_number);
+            read_blocks(bitmap.buf, bgdt.table[group].bg_inode_bitmap, 1);
+        }
         
         if (!is_bitmap_set(bitmap.buf, inode_to_local(inode_number))) {
             return inode_number;
