@@ -36,13 +36,10 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    // Define and initialize is_replace
-    int is_replace = 0; // Set to 1 if replacement is allowed, otherwise 0
-
     // Read storage into memory, requiring 4 MB memory
     image_storage = malloc(4*1024*1024);
+    file_buffer   = malloc(4*1024*1024);
     FILE *fptr    = fopen(argv[3], "r");
-    read_buffer   = malloc(4*1024*1024); // Allocate memory for read_buffer
     fread(image_storage, 4*1024*1024, 1, fptr);
     fclose(fptr);
 
@@ -66,15 +63,16 @@ int main(int argc, char *argv[]) {
     char *name = argv[1];
     struct EXT2DriverRequest request;
     struct EXT2DriverRequest reqread;
-    printf("Filename       : %s\n", name);
     int filename_length = strlen(name);
+
+    printf("Filename       : %s\n", name);
     printf("Filename length: %d\n", filename_length);
 
     request.buf = file_buffer;
     request.buffer_size = filesize;
     request.name = name;
     request.name_len = filename_length;
-    request.is_directory = 0;
+    request.is_directory = false;
     sscanf(argv[2], "%u", &request.parent_inode);
     sscanf(argv[1], "%s", request.name);
 
@@ -83,13 +81,13 @@ int main(int argc, char *argv[]) {
     int retcode = read(reqread);
     if (retcode == 0)
     {
-        bool same = 1;
+        bool same = true;
         for (uint32_t i = 0; i < filesize; i++)
         {
             if (read_buffer[i] != file_buffer[i])
             {
                 printf("not same\n");
-                same = 0;
+                same = false;
                 break;
             }
         }
@@ -98,6 +96,9 @@ int main(int argc, char *argv[]) {
             printf("same\n");
         }
     }
+
+    bool is_replace = true;
+
 
     retcode = write(&request);
     if (retcode == 1 && is_replace)
@@ -117,12 +118,10 @@ int main(int argc, char *argv[]) {
     // Write image in memory into original, overwrite them
     fptr = fopen(argv[3], "w");
     fwrite(image_storage, 4 * 1024 * 1024, 1, fptr);
-    free(read_buffer); // Free allocated memory for read_buffer
-    return 0;
+    fclose(fptr);
 
     return 0;
 }
-
 
 //original from kit
 /*
