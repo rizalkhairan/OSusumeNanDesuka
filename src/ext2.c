@@ -1044,6 +1044,40 @@ bool find_directory_entry(struct EXT2Inode *dir_inode, char *name, uint8_t name_
             offset += entry->rec_len;
         }
     }
+
+    // singly indirect block
+    struct BlockBuffer current_dir_block;
+    if (dir_inode->i_block[12] != 0){
+        uint32_t pointer_per_block = BLOCK_SIZE / sizeof(uint32_t);
+        uint32_t indirect[pointer_per_block]; // table of pointer to block of directory entry
+        read_blocks(indirect, dir_inode->i_block[12], 1);
+
+        for(uint32_t i=0; i<pointer_per_block; i++){
+            if(indirect[i] != 0){
+                read_blocks(&current_dir_block, indirect[i], 1);
+
+                uint32_t offset = 0;
+                while (offset < BLOCK_SIZE) {
+                    struct EXT2DirectoryEntry *entry = (struct EXT2DirectoryEntry *)(current_dir_block.buf + offset);
+                    if(entry->rec_len==0){
+                        break;
+                    }
+                    int a = entry->inode;
+                    int b = entry->name_len;
+                    int c = name_len;
+                    char* d = get_entry_name(entry);
+                    char* e = name;
+                    if (entry->inode != 0 && entry->name_len == name_len &&
+                        memcmp(get_entry_name(entry), name, name_len) == 0) {
+                        memcpy(result, entry, sizeof(struct EXT2DirectoryEntry));
+                        return true;
+                    }
+                    offset += entry->rec_len;
+                }
+            }
+        }
+    }
+
     return false;
 }
 
