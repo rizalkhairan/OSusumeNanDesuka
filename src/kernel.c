@@ -22,19 +22,37 @@ void kernel_setup(void) {
     initialize_filesystem_ext2();
     
     int x = 555;
-    for(int i=0;i<900;i++){
+    for(int i=0;i<200;i++){
+        struct EXT2DriverRequest req0 = {
+            .name = "File    ",
+            .name_len = 8,
+            .parent_inode = 2,
+            .buffer_size = 8,
+            .is_directory = true,
+        };
+        memset(req0.name+4, (char)(i/1000+48), 1);
+        memset(req0.name+5, (char)((i/100)%10+48), 1);
+        memset(req0.name+6, (char)((i/10)%10+48), 1);
+        memset(req0.name+7, (char)(i%10+48), 1);
+        if(i==24){
+            int kusanagi = 39;
+        }
+        x = write(&req0);
+    }
+
+    for(int i=0;i<200;i++){
         struct EXT2DriverRequest req = {
             .name = "File    ",
             .name_len = 8,
             .parent_inode = 2,
-            .buffer_size = 1,
+            .buffer_size = 8,
             .is_directory = true,
         };
         memset(req.name+4, (char)(i/1000+48), 1);
         memset(req.name+5, (char)((i/100)%10+48), 1);
         memset(req.name+6, (char)((i/10)%10+48), 1);
         memset(req.name+7, (char)(i%10+48), 1);
-        if(i==1820){
+        if(i==24){
             int kusanagi = 39;
         }
         x = write(&req);
@@ -68,6 +86,21 @@ void kernel_setup(void) {
 
     // struct EXT2Inode root;
     // read_inode(2, &root);
+    
+    struct EXT2Inode root;
+    read_inode(2, &root);
+
+    struct EXT2DriverRequest req2 = {
+            .name = ".",
+            .name_len = 1,
+            .parent_inode = 2,
+            .buffer_size = 2*BLOCK_SIZE,
+            .is_directory = true,
+        };
+        
+    x = read_directory(&req2);
+
+    int ootori = 39;
 
     // struct BlockBuffer b;
     // set_bitmap_bit(b.buf, 112, true);

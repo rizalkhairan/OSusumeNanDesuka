@@ -267,7 +267,7 @@ bool is_directory_empty(uint32_t inode){
 
 int8_t read_directory(struct EXT2DriverRequest *prequest){
      // Unknown / invalid input
-    if (prequest == NULL || prequest->buf == NULL || prequest->buffer_size == 0)
+    if (prequest == NULL || prequest->buf != NULL || prequest->buffer_size == 0)
     return -1;
 
     // Validate parent inode
@@ -284,7 +284,8 @@ int8_t read_directory(struct EXT2DriverRequest *prequest){
     struct EXT2Inode child_inode;
     read_inode(entry.inode, &child_inode);
     if ((child_inode.i_mode & 0xF000) != 0x4000) return 1;
-
+    
+    prequest->buffer_size = BLOCK_SIZE * 2;
     // Copy blocks of directory to buf
     load_inode_data(&child_inode, prequest->buf, prequest->buffer_size);
 
@@ -337,29 +338,33 @@ int8_t write(struct EXT2DriverRequest *request){
     if ((parent_inode.i_mode & 0xF000) != 0x4000) return 2;
 
     // Validate if file/folder already exists
-    struct BlockBuffer dir_entry;
-    read_blocks(&dir_entry, parent_inode.i_block[0], 1);
-    struct EXT2DirectoryEntry *ptr = get_directory_entry(&dir_entry, 0);
-    struct EXT2DirectoryEntry *new_ptr = ptr;
-    while (true){
-        ptr = new_ptr;
-        if (memcmp(get_entry_name(ptr), request->name, request->name_len) == 0){
-            // file
-            if(ptr->file_type == 1 && request->is_directory == 0){
-                return 1;
-            } 
-            
-            // directory
-            if(ptr->file_type == 2 && request->is_directory == 1){
-                return 1;
-            }
-        }
-        new_ptr = get_next_directory_entry(ptr);
-
-        if (new_ptr->rec_len == 0){
-            break;
-        }
+    struct EXT2DirectoryEntry tester;
+    bool result = find_directory_entry(&parent_inode, request->name, request->name_len, &tester);
+    if(result == true){
+        return 1;
     }
+    // struct BlockBuffer dir_entry;
+    // read_blocks(&dir_entry, parent_inode.i_block[0], 1);        // validasi cuma di 1 blok, belum semua
+    // struct EXT2DirectoryEntry *new_ptr = ptr;
+    // while (true){
+    //     ptr = new_ptr;
+    //     if (memcmp(get_entry_name(ptr), request->name, request->name_len) == 0){
+    //         // file
+    //         if(ptr->file_type == 1 && request->is_directory == 0){
+    //             return 1;
+    //         } 
+            
+    //         // directory
+    //         if(ptr->file_type == 2 && request->is_directory == 1){
+    //             return 1;
+    //         }
+    //     }
+    //     new_ptr = get_next_directory_entry(ptr);
+
+    //     if (new_ptr->rec_len == 0){
+    //         break;
+    //     }
+    // }
 
     // Validate whether there's enough blocks to hold the data
     uint32_t blocks_needed = (request->buffer_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -867,7 +872,7 @@ void load_inode_data(struct EXT2Inode* inode, void* buf, uint32_t buffer_size) {
     uint32_t total_read = 0;
     if (inode->i_size > buffer_size) return; // Not enough buffer
     if (inode->i_size == 0) return; // Empty file
-    if (buf == NULL) return; // Invalid buffer
+    // if (buf == NULL) return; // Invalid buffer
 
     // Direct blocks
     for (int i = 0; i < 12 && total_read < buffer_size; i++) {
@@ -1015,15 +1020,24 @@ void read_inode(uint32_t inode_num, struct EXT2Inode *out) {
 bool find_directory_entry(struct EXT2Inode *dir_inode, char *name, uint8_t name_len, struct EXT2DirectoryEntry *result) {
     struct BlockBuffer block;
 
+    // direct block
     for (int i = 0; i < 12; i++) {
-        if (dir_inode->i_block[i] == 0) continue;
+        if (dir_inode->i_block[i] == 0) break; //continue;
         read_blocks(&block, dir_inode->i_block[i], 1);
 
         uint32_t offset = 0;
         while (offset < BLOCK_SIZE) {
             struct EXT2DirectoryEntry *entry = (struct EXT2DirectoryEntry *)(block.buf + offset);
+            if(entry->rec_len==0){
+                break;
+            }
+            int a = entry->inode;
+            int b = entry->name_len;
+            int c = name_len;
+            char* d = get_entry_name(entry);
+            char* e = name;
             if (entry->inode != 0 && entry->name_len == name_len &&
-                memcmp((char *)(entry + 1), name, name_len) == 0) {
+                memcmp(get_entry_name(entry), name, name_len) == 0) {
                 memcpy(result, entry, sizeof(struct EXT2DirectoryEntry));
                 return true;
             }
