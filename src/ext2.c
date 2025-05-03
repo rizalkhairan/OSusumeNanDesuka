@@ -1069,7 +1069,7 @@ bool find_directory_entry(struct EXT2Inode *dir_inode, char *name, uint8_t name_
                     char* e = name;
                     if (entry->inode != 0 && entry->name_len == name_len &&
                         memcmp(get_entry_name(entry), name, name_len) == 0) {
-                        memcpy(result, entry, sizeof(struct EXT2DirectoryEntry));
+                        memcpy(result, &entry, sizeof(struct EXT2DirectoryEntry));
                         return true;
                     }
                     offset += entry->rec_len;
@@ -1077,6 +1077,51 @@ bool find_directory_entry(struct EXT2Inode *dir_inode, char *name, uint8_t name_
             }
         }
     }
+
+    // doubly indirect block
+    if (dir_inode->i_block[13] != 0){
+        uint32_t pointer_per_block = BLOCK_SIZE / sizeof(uint32_t);
+        uint32_t doubly_indirect[pointer_per_block];
+        read_blocks(doubly_indirect, dir_inode->i_block[13], 1);
+
+
+        // iterate every entry on the doubly indirect block
+        for(uint32_t i=0; i<pointer_per_block; i++){
+            if(doubly_indirect[i]!=0){
+                uint32_t pointer_per_block = BLOCK_SIZE / sizeof(uint32_t);
+                uint32_t singly_indirect[pointer_per_block]; // table of pointer to block of directory entry
+                read_blocks(singly_indirect, doubly_indirect[i], 1);
+
+                for(uint32_t j=0; j<pointer_per_block; j++){
+                    if(singly_indirect[j] != 0){
+                        read_blocks(&current_dir_block, singly_indirect[j], 1);
+        
+                        uint32_t offset = 0;
+                        while (offset < BLOCK_SIZE) {
+                            struct EXT2DirectoryEntry *entry = (struct EXT2DirectoryEntry *)(current_dir_block.buf + offset);
+                            if(entry->rec_len==0){
+                                break;
+                            }
+                            int a = entry->inode;
+                            int b = entry->name_len;
+                            int c = name_len;
+                            char* d = get_entry_name(entry);
+                            char* e = name;
+                            if (entry->inode != 0 && entry->name_len == name_len &&
+                                memcmp(get_entry_name(entry), name, name_len) == 0) {
+                                memcpy(result, &entry, sizeof(struct EXT2DirectoryEntry));
+                                return true;
+                            }
+                            offset += entry->rec_len;
+                        }
+                    }
+                }
+
+
+            }
+        }
+    }
+
 
     return false;
 }
