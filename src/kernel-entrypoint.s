@@ -1,5 +1,6 @@
 global loader       ; the entry symbol for ELF
 global load_gdt     ; load GDT table
+global set_tss_register
 extern kernel_setup ; kernel
 
 KERNEL_STACK_SIZE equ 2097152           ; size of stack in bytes
@@ -48,6 +49,11 @@ flush_cs:
     mov ss, ax
     mov ds, ax
     mov es, ax
+    ret
+
+set_tss_register:
+    mov ax, 0x28 | 0x0          ; GDT_TSS_SELECTOR with RPL 0
+    ltr ax
     ret
 
 global kernel_execute_user_program ; execute initial user program from kernel
