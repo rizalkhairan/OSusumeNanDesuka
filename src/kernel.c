@@ -22,27 +22,9 @@ void kernel_setup(void) {
     initialize_filesystem_ext2();
     
     int x = 555;
-    for(int i=0;i<200;i++){
-        struct EXT2DriverRequest req0 = {
-            .name = "File    ",
-            .name_len = 8,
-            .parent_inode = 2,
-            .buffer_size = 8,
-            .is_directory = true,
-        };
-        memset(req0.name+4, (char)(i/1000+48), 1);
-        memset(req0.name+5, (char)((i/100)%10+48), 1);
-        memset(req0.name+6, (char)((i/10)%10+48), 1);
-        memset(req0.name+7, (char)(i%10+48), 1);
-        if(i==24){
-            int kusanagi = 39;
-        }
-        x = write(&req0);
-    }
-
-    for(int i=0;i<200;i++){
+    for(int i=0;i<0;i++){
         struct EXT2DriverRequest req = {
-            .name = "File    ",
+            .name = "Dirs    ",
             .name_len = 8,
             .parent_inode = 2,
             .buffer_size = 8,
@@ -60,30 +42,63 @@ void kernel_setup(void) {
 
 
     // Write File
-    // char file[] = "FileXXXX has been written";
-    // for (int i=0;i<1;i++) {
-    //     struct BlockBuffer file_buf;
-    //     memset(file_buf.buf, 0, BLOCK_SIZE);
-    //     memcpy(file_buf.buf, file, sizeof(file));
-    //     memset(file_buf.buf+4, (char)(i/1000+48), 1);
-    //     memset(file_buf.buf+5, (char)((i/100)%10+48), 1);
-    //     memset(file_buf.buf+6, (char)((i/10)%10+48), 1);
-    //     memset(file_buf.buf+7, (char)(i%10+48), 1);
-    //     struct EXT2DriverRequest req = {
-    //         .buf = file_buf.buf,
-    //         .name = "File    ",
-    //         .name_len = 8,
-    //         .parent_inode = 2,
-    //         .buffer_size = sizeof(file),
-    //         .is_directory = false,
-    //     };
-    //     memset(req.name+4, (char)(i/1000+48), 1);
-    //     memset(req.name+5, (char)((i/100)%10+48), 1);
-    //     memset(req.name+6, (char)((i/10)%10+48), 1);
-    //     memset(req.name+7, (char)(i%10+48), 1);
-    //     int8_t result = write(&req);
-    // }
+    int8_t result = 99;
+    char file[] = "FileXXXX has been written";
 
+    struct BlockBuffer file_buf[1];
+    
+    for (uint32_t i=0;i<sizeof(file_buf)/BLOCK_SIZE;i++) {
+        memset(file_buf[i].buf, (char) (i%10)+'0', BLOCK_SIZE);
+    }
+    for (int i=0;i<100;i++) {
+        memcpy(file_buf[0].buf, file, sizeof(file));
+        memset(file_buf[0].buf+4, (char)(i/1000+48), 1);
+        memset(file_buf[0].buf+5, (char)((i/100)%10+48), 1);
+        memset(file_buf[0].buf+6, (char)((i/10)%10+48), 1);
+        memset(file_buf[0].buf+7, (char)(i%10+48), 1);
+        struct EXT2DriverRequest req = {
+            .buf = file_buf[0].buf,
+            .name = "File    ",
+            .name_len = 8,
+            .parent_inode = 2,
+            .buffer_size = sizeof(file_buf),
+            .is_directory = false,
+        };
+        memset(req.name+4, (char)(i/1000+48), 1);
+        memset(req.name+5, (char)((i/100)%10+48), 1);
+        memset(req.name+6, (char)((i/10)%10+48), 1);
+        memset(req.name+7, (char)(i%10+48), 1);
+        result = write(&req);
+    }
+    
+    
+    // Delete file
+    struct EXT2DriverRequest req10 = {
+        .name = "File0002",
+        .name_len = 8,
+        .parent_inode = 2,
+        .buffer_size = 0,
+        .is_directory = false,
+    };
+    result = delete(req10);    
+    struct EXT2DriverRequest req = {
+        .name = "File0001",
+        .name_len = 8,
+        .parent_inode = 2,
+        .buffer_size = 0,
+        .is_directory = false,
+    };
+    result = delete(req);
+
+    char testres[] = "Test result: ";
+    for (int i = 0; i < sizeof(testres); i++) {
+        framebuffer_write(20, i, testres[i], 0x07, 0x00);
+    }
+    framebuffer_write(20, sizeof(testres)+3, (char) (result%10+'0'), 0x07, 0x00);
+    framebuffer_write(20, sizeof(testres)+2, (char) (result/10%10+'0'), 0x07, 0x00);
+    framebuffer_write(20, sizeof(testres)+1, (char) (result/100%10+'0'), 0x07, 0x00);
+    framebuffer_write(20, sizeof(testres), (char) (result/1000%10+'0'), 0x07, 0x00);
+    
     // struct EXT2Inode root;
     // read_inode(2, &root);
     

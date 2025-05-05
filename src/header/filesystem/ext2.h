@@ -23,6 +23,11 @@ extern struct EXT2BlockGroupDescriptorTable bgdt;
 #define INODES_TABLE_BLOCK_COUNT 16u 
 #define INODES_PER_GROUP (INODES_PER_TABLE * INODES_TABLE_BLOCK_COUNT) // number of inodes per group
 
+#define DIRECT_BLOCK_COUNT 12u
+#define SINGLY_INDIRECT_BLOCK_COUNT (BLOCK_SIZE / sizeof(uint32_t))
+#define DOUBLY_INDIRECT_BLOCK_COUNT (SINGLY_INDIRECT_BLOCK_COUNT * SINGLY_INDIRECT_BLOCK_COUNT)
+#define TRIPLY_INDIRECT_BLOCK_COUNT (SINGLY_INDIRECT_BLOCK_COUNT * SINGLY_INDIRECT_BLOCK_COUNT * SINGLY_INDIRECT_BLOCK_COUNT)
+
 
 /**
  * inodes constant 
@@ -419,6 +424,27 @@ void load_inode_data(struct EXT2Inode* inode,  void* buf, uint32_t buffer_size);
 uint32_t load_block_data(uint32_t block_number, uint8_t depth, void* buf, uint32_t buffer_size);
 
 /**
+ * @brief Load the next logical data block from an inode. Load sequential continuous blocks of data
+ * @param inode inode on which the data is extracted from
+ * @param buf the next data block after block_offset
+ * @param block_offset offset of the last data block loaded. -1 to read first block
+ * @param indirect_pointers array of three BlockBuffer to stores three level of last loaded indirect pointers
+ * @return block number that is loaded
+ */
+uint32_t load_inode_next_block(struct EXT2Inode* inode, void* buf, uint32_t block_offset, struct BlockBuffer* indirect_pointers);
+
+/**
+ * @brief load an indirect block with particular offset within its address space of some depth
+ * @param inode inode on which the data is extracted from
+ * @param buf the next data block after block_offset
+ * @param reduced_block_offset addesss space of an indirect block level. Has values between 0 to 128**depth - 1
+ * @param indirect_pointers array of three BlockBuffer to stores three level of last loaded indirect pointers
+ * @param depth depth of the data blocks. 1 = singly indirect, 2 = doubly indirect, 3 = triply indirect
+ * @return block number that is loaded
+ */
+uint32_t load_indirect_block(struct EXT2Inode *inode, void *buf, uint32_t reduced_block_offset, struct BlockBuffer* indirect_pointers, uint8_t depth);
+
+/**
  * @brief Helper to modify block bitmap
  * @param bitmap block buffer
  * @param bit bit offset in range (0, BLOCK_SIZE-1)
@@ -467,6 +493,22 @@ bool exists_n_free_blocks(int n);
 // TODO: Should there be any validation here (thus, refactoring this to an int for returning error code),
 // or should this just assume that everything will happen perfectly (enough block, etc)
 void add_directory_entry(struct EXT2DirectoryEntry dir, char *name, uint32_t inode_number);
+
+/**
+ * @brief attempt to delete directory entry from a parent directory by leaving gaps in the directory entries
+ * @param delete_request request containing the parent inode to be searched on
+ * @param deleted_inode_number inode number of the deleted directory entry if succesfully deleted
+ * @return 0: success, 1: not found, -1: unknown error
+ */
+int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct EXT2Inode* parent, uint32_t* deleted_inode_number);
+
+/**
+ * @brief check whether the entry is equal to the request
+ * @param entry the directory entry
+ * @param request the request
+ * @return true if equal, false otherwise
+ */
+bool correct_request_entry(struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 
 bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 
