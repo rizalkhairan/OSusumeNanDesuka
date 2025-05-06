@@ -50,7 +50,7 @@ void kernel_setup(void) {
     for (uint32_t i=0;i<sizeof(file_buf)/BLOCK_SIZE;i++) {
         memset(file_buf[i].buf, (char) (i%10)+'0', BLOCK_SIZE);
     }
-    for (int i=0;i<100;i++) {
+    for (int i=0;i<10;i++) {
         memcpy(file_buf[0].buf, file, sizeof(file));
         memset(file_buf[0].buf+4, (char)(i/1000+48), 1);
         memset(file_buf[0].buf+5, (char)((i/100)%10+48), 1);

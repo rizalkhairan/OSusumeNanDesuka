@@ -489,10 +489,30 @@ uint32_t find_free_anywhere(uint32_t bgd_index);
 // Check whether there's n blocks available to store data inside the disk
 bool exists_n_free_blocks(int n);
 
-// add dir and its name to directory entry in inode_number
-// TODO: Should there be any validation here (thus, refactoring this to an int for returning error code),
-// or should this just assume that everything will happen perfectly (enough block, etc)
-void add_directory_entry(struct EXT2DirectoryEntry dir, char *name, uint32_t inode_number);
+/**
+ * @brief allocate additional contiguous blocks for a node
+ * @param node inode to allocate blocks for
+ * @param preferred_bgd it is located at the node inode bgd
+ * @param blocks_needed amount of blocks needed
+ * @return first block address of the newly allocated blocks 
+ */
+uint32_t allocate_additional_blocks(struct EXT2Inode *node, uint32_t preferred_bgd, uint32_t blocks_needed);
+
+/**
+ * @brief get the length of an entry including the name and padding
+ * @param entry the directory entry
+ * @return the length of the entry
+ */
+uint16_t get_entry_len(struct EXT2DirectoryEntry *entry);
+
+/**
+ * @brief attempt to add  a directory entry to a parent directory
+ * @param dir the directory entry to be added with defined inode, name_len and file_type field
+ * @param name the name of the directory entry to be added
+ * @param parent_inode the inode of the parent directory
+ * @return 0: success, 1: success with additional block, -1: unknown error, -2: not enough space
+ */
+int8_t add_directory_entry(struct EXT2DirectoryEntry *dir, char *name, struct EXT2Inode *parent_inode);
 
 /**
  * @brief attempt to delete directory entry from a parent directory by leaving gaps in the directory entries
