@@ -89,6 +89,14 @@ void kernel_setup(void) {
         .is_directory = false,
     };
     result = delete(req);
+    struct EXT2DriverRequest req20 = {
+        .name = "File0003",
+        .name_len = 8,
+        .parent_inode = 2,
+        .buffer_size = 0,
+        .is_directory = false,
+    };
+    result = delete(req20);
 
     char testres[] = "Test result: ";
     for (int i = 0; i < sizeof(testres); i++) {

@@ -499,6 +499,14 @@ bool exists_n_free_blocks(int n);
 uint32_t allocate_additional_blocks(struct EXT2Inode *node, uint32_t preferred_bgd, uint32_t blocks_needed);
 
 /**
+ * @brief initialize directory entries for newly created directory
+ * @param node inode to allocate blocks for
+ * @param inode inode number of the directory
+ * @param parent_inode inode number of the parent directory
+ */
+void init_directory_table(struct EXT2Inode *node, uint32_t inode, uint32_t parent_inode);
+
+/**
  * @brief get the length of an entry including the name and padding
  * @param entry the directory entry
  * @return the length of the entry
@@ -507,12 +515,12 @@ uint16_t get_entry_len(struct EXT2DirectoryEntry *entry);
 
 /**
  * @brief attempt to add  a directory entry to a parent directory
- * @param dir the directory entry to be added with defined inode, name_len and file_type field
- * @param name the name of the directory entry to be added
- * @param parent_inode the inode of the parent directory
- * @return 0: success, 1: success with additional block, -1: unknown error, -2: not enough space
+ * @param request write request
+ * @param dir directory entry to be inserted
+ * @param parent_inode inode of the parent directory
+ * @return 0: success, 1: success with additional block, 2: entry with the same name already exist, -1: unknown error, -2: not enough space
  */
-int8_t add_directory_entry(struct EXT2DirectoryEntry *dir, char *name, struct EXT2Inode *parent_inode);
+int8_t add_directory_entry(struct EXT2DriverRequest *request, struct EXT2DirectoryEntry *dir, struct EXT2Inode *parent_inode);
 
 /**
  * @brief attempt to delete directory entry from a parent directory by leaving gaps in the directory entries
@@ -532,5 +540,5 @@ bool correct_request_entry(struct EXT2DirectoryEntry *entry, struct EXT2DriverRe
 
 bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 
-void updateBGDTInode(uint32_t inode_number, bool is_update);
+void update_bgdt(void);
 #endif

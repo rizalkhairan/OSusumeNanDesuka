@@ -66,29 +66,6 @@ uint32_t inode_to_local(uint32_t inode){
     return (inode-1) % INODES_PER_GROUP;
 }
 
-void init_directory_table(struct EXT2Inode *node, uint32_t inode, uint32_t parent_inode){
-    struct BlockBuffer buf = {0};
-
-    // Create self .
-    struct EXT2DirectoryEntry *dot = (struct EXT2DirectoryEntry *)buf.buf;
-    dot->inode = inode;
-    dot->rec_len = 12; // 8 (struct) + 1 (name) + padding = 12
-    dot->name_len = 1;
-    dot->file_type = 2; // 2 = directory
-    *((char *)(dot + 1)) = '.';
-
-    // Create .. (parent)
-    struct EXT2DirectoryEntry *dotdot = (struct EXT2DirectoryEntry *)((uint8_t *)dot + dot->rec_len);
-    dotdot->inode = parent_inode;
-    dotdot->rec_len = 12; 
-    dotdot->name_len = 2;
-    dotdot->file_type = 2;
-    *((char *)(dotdot + 1)) = '.';
-    *((char *)(dotdot + 1) + 1) = '.';
-
-    // Allocate new block for this directory
-    allocate_node_blocks(buf.buf, node, inode_to_bgd(inode));
-}
 
 /* =============================== INITIALIZER ==========================================*/
 
@@ -221,8 +198,8 @@ void create_ext2(void){
     };
     memset(root_inode.i_block, 0x0, 15 * sizeof(uint32_t));
     sync_node(&root_inode, 2);
-    updateBGDTInode(2, true); // TODO: when to update global metadata?
     bgdt.table[0].bg_used_dirs_count += 1;
+    update_bgdt();
     
     sb.s_free_inodes_count -= 1;
 
@@ -337,35 +314,6 @@ int8_t write(struct EXT2DriverRequest *request){
     read_inode(request->parent_inode, &parent_inode);
     if ((parent_inode.i_mode & 0xF000) != 0x4000) return 2;
 
-    // Validate if file/folder already exists
-    struct EXT2DirectoryEntry tester;
-    bool result = find_directory_entry(&parent_inode, request->name, request->name_len, &tester);
-    if(result == true){
-        return 1;
-    }
-    // struct BlockBuffer dir_entry;
-    // read_blocks(&dir_entry, parent_inode.i_block[0], 1);        // validasi cuma di 1 blok, belum semua
-    // struct EXT2DirectoryEntry *new_ptr = ptr;
-    // while (true){
-    //     ptr = new_ptr;
-    //     if (memcmp(get_entry_name(ptr), request->name, request->name_len) == 0){
-    //         // file
-    //         if(ptr->file_type == 1 && request->is_directory == 0){
-    //             return 1;
-    //         } 
-            
-    //         // directory
-    //         if(ptr->file_type == 2 && request->is_directory == 1){
-    //             return 1;
-    //         }
-    //     }
-    //     new_ptr = get_next_directory_entry(ptr);
-
-    //     if (new_ptr->rec_len == 0){
-    //         break;
-    //     }
-    // }
-
     // Validate whether there's enough blocks to hold the data
     uint32_t blocks_needed = (request->buffer_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
     if(!exists_n_free_blocks(blocks_needed)) return -1;
@@ -375,24 +323,18 @@ int8_t write(struct EXT2DriverRequest *request){
     if(new_inode_number == 0) return -1;
     
     struct EXT2DirectoryEntry new_entry = {0};
+    struct EXT2Inode new_inode = {0};
     // Write file 
     if (!request->is_directory){
-        struct EXT2Inode *new_inode;    
-        // Alokasikan memori untuk inode baru
-        struct EXT2Inode temp_inode = {0};
-        new_inode = &temp_inode;
-
         // Set permission: 0x8000 untuk file reguler | 0x0200 = user write permission
-        new_inode->i_mode = 0x8000 | 0x0200;
-
+        new_inode.i_mode = 0x8000 | 0x0200;
         // Ukuran file
-        new_inode->i_size = request->buffer_size;
-
+        new_inode.i_size = request->buffer_size;
         // Jumlah blok (dalam 512-byte blocks, EXT2 i_blocks menyimpan ukuran dalam 512-byte block)
-        new_inode->i_blocks = blocks_needed;
+        new_inode.i_blocks = blocks_needed;
 
         // Alokasikan blok dan isi dengan data
-        allocate_node_blocks(request->buf, new_inode, inode_to_bgd(request->parent_inode));
+        allocate_node_blocks(request->buf, &new_inode, inode_to_bgd(request->parent_inode));
 
         // Buat entri direktori untuk file baru
         new_entry.inode = new_inode_number;
@@ -400,37 +342,30 @@ int8_t write(struct EXT2DriverRequest *request){
         new_entry.name_len = request->name_len;
         new_entry.file_type = 1; // 1 = file reguler
 
-        // Sync the inode table and bitmap to disk
-        sync_node(new_inode, new_inode_number);
     }
-
-
     // Write directory
     else {
+        // Allocate corresponding Inode for the new directory
+        new_inode.i_mode = 0x4000;
+        new_inode.i_size = BLOCK_SIZE;
+        new_inode.i_blocks = 1;
+        
         new_entry.inode = new_inode_number;
         new_entry.name_len = request->name_len;
         new_entry.file_type = 2;
-        
-        // Allocate corresponding Inode for the new directory
-        struct EXT2Inode new_inode = {
-            new_inode.i_mode = 0x4000,
-            new_inode.i_size = request->buffer_size,
-            new_inode.i_blocks = 1,
-        };
         init_directory_table(&new_inode, new_inode_number, request->parent_inode);
-        sync_node(&new_inode, new_inode_number);
-
-        // Add the new directory to its parent's directory entry
-        // Sync the inode table and bitmap to disk
-        sync_node(&new_inode, new_inode_number);
-        updateBGDTInode(new_inode_number, true);
     }
-    int8_t entry_addition = add_directory_entry(&new_entry, request->name, &parent_inode);
+    int8_t entry_addition = add_directory_entry(request, &new_entry, &parent_inode);
     if (entry_addition == 1) {
         return 0; // Not enough space
+    } else if (entry_addition == 2) {
+        return 1;
     } else if (entry_addition != 0) {
         return -1; // Unknown error
     }
+    
+    sync_node(&new_inode, new_inode_number);
+    update_bgdt();
 
     return 0;
 }
@@ -462,7 +397,7 @@ int8_t delete(struct EXT2DriverRequest request) {
     // Delete inode, BGD, and superblock
     // Deallocate the inode and its blocks
     deallocate_node(request.parent_inode);
-    // BGD To do...
+    update_bgdt();
     // Superblock To do...
 }
 
@@ -1121,13 +1056,37 @@ uint32_t allocate_additional_blocks(struct EXT2Inode *node, uint32_t preferred_b
     return 0; // Not implemented yet
 }
 
+void init_directory_table(struct EXT2Inode *node, uint32_t inode, uint32_t parent_inode){
+    struct BlockBuffer buf = {0};
+
+    // Create self .
+    struct EXT2DirectoryEntry *dot = (struct EXT2DirectoryEntry *)buf.buf;
+    dot->inode = inode;
+    dot->name_len = 1;
+    dot->file_type = 2; // 2 = directory
+    *((char *)(dot + 1)) = '.';
+    dot->rec_len = get_entry_len(dot);
+
+    // Create .. (parent)
+    struct EXT2DirectoryEntry *dotdot = (struct EXT2DirectoryEntry *)((uint8_t *)dot + dot->rec_len);
+    dotdot->inode = parent_inode;
+    dotdot->name_len = 2;
+    dotdot->file_type = 2;
+    *((char *)(dotdot + 1)) = '.';
+    *((char *)(dotdot + 1) + 1) = '.';
+    dotdot->rec_len = 0; 
+
+    // Allocate new block for this directory
+    allocate_node_blocks(buf.buf, node, inode_to_bgd(inode));
+}
+
 uint16_t get_entry_len(struct EXT2DirectoryEntry *entry) {
     uint16_t len = sizeof(struct EXT2DirectoryEntry) + entry->name_len;
     len = (len + 3) & ~3; // Align to 4 bytes
     return len;
 }
 
-int8_t add_directory_entry(struct EXT2DirectoryEntry *dir, char *name, struct EXT2Inode *parent_inode) {
+int8_t add_directory_entry(struct EXT2DriverRequest *request, struct EXT2DirectoryEntry *dir, struct EXT2Inode *parent_inode) {
     struct BlockBuffer directory_entries[1];
     struct BlockBuffer indirect_pointers[3];
     uint32_t current_loaded_block = parent_inode->i_block[0];
@@ -1152,6 +1111,10 @@ int8_t add_directory_entry(struct EXT2DirectoryEntry *dir, char *name, struct EX
         }
         entry = (struct EXT2DirectoryEntry *)(directory_entries[0].buf + offset);
 
+        if (correct_request_entry(entry, request)) {
+            return 2; // Entry already exists
+        }
+
         current_entry_len = get_entry_len(entry);
         if (entry->rec_len == 0 && offset + current_entry_len + new_entry_len > BLOCK_SIZE) {
             // End of entries but need to allocate new block
@@ -1164,7 +1127,7 @@ int8_t add_directory_entry(struct EXT2DirectoryEntry *dir, char *name, struct EX
             // New block. Put entry in zero offset
             memset(directory_entries[0].buf, 0x0, BLOCK_SIZE);
             memcpy(directory_entries[0].buf, dir, sizeof(struct EXT2DirectoryEntry));
-            memcpy(directory_entries[0].buf + sizeof(struct EXT2DirectoryEntry), name, dir->name_len);
+            memcpy(directory_entries[0].buf + sizeof(struct EXT2DirectoryEntry), request->name, dir->name_len);
             write_blocks(directory_entries[0].buf, new_block, 1);
             return 1;
         }
@@ -1177,7 +1140,7 @@ int8_t add_directory_entry(struct EXT2DirectoryEntry *dir, char *name, struct EX
             memcpy(directory_entries[0].buf + offset, entry, sizeof(struct EXT2DirectoryEntry));
             
             memcpy(directory_entries[0].buf + offset + current_entry_len, dir, sizeof(struct EXT2DirectoryEntry));
-            memcpy(directory_entries[0].buf + offset + current_entry_len + sizeof(struct EXT2DirectoryEntry), name, dir->name_len);
+            memcpy(directory_entries[0].buf + offset + current_entry_len + sizeof(struct EXT2DirectoryEntry), request->name, dir->name_len);
             write_blocks(directory_entries[0].buf, current_loaded_block, 1);
             return 0;
         }
@@ -1292,21 +1255,15 @@ bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry
     return found;
 }
 
-void updateBGDTInode(uint32_t inode_number, bool is_update){
-    uint32_t inode_location = inode_to_bgd(inode_number);
-    
-    if(is_update) bgdt.table[inode_location].bg_free_inodes_count--; // update
-    else bgdt.table[inode_location].bg_free_inodes_count++; // delete
-    
+void update_bgdt(void){
     struct BlockBuffer b;
     memset(b.buf, 0, BLOCK_SIZE);
     memcpy(b.buf, &bgdt, sizeof(struct EXT2BlockGroupDescriptorTable));
-    for (uint8_t group=0;group<GROUPS_COUNT;group++) {
+    for (uint8_t group = 0; group < GROUPS_COUNT; group++) {
         if (group == 0) {
-            write_blocks(b.buf, 2, 1);
-        }
-        else {
-            write_blocks(b.buf, group * BLOCKS_PER_GROUP, 1);
+            write_blocks(&b, 2, 1);
+        } else {
+            write_blocks(&b, group * BLOCKS_PER_GROUP, 1);
         }
     }
 }
