@@ -332,16 +332,13 @@ int8_t write(struct EXT2DriverRequest *request){
         new_inode.i_size = request->buffer_size;
         // Jumlah blok (dalam 512-byte blocks, EXT2 i_blocks menyimpan ukuran dalam 512-byte block)
         new_inode.i_blocks = blocks_needed;
-
-        // Alokasikan blok dan isi dengan data
-        allocate_node_blocks(request->buf, &new_inode, inode_to_bgd(request->parent_inode));
-
+        
         // Buat entri direktori untuk file baru
         new_entry.inode = new_inode_number;
         new_entry.rec_len = 0;
         new_entry.name_len = request->name_len;
         new_entry.file_type = 1; // 1 = file reguler
-
+        
     }
     // Write directory
     else {
@@ -353,17 +350,23 @@ int8_t write(struct EXT2DriverRequest *request){
         new_entry.inode = new_inode_number;
         new_entry.name_len = request->name_len;
         new_entry.file_type = 2;
-        init_directory_table(&new_inode, new_inode_number, request->parent_inode);
     }
+    // Entry insertion
     int8_t entry_addition = add_directory_entry(request, &new_entry, &parent_inode);
-    if (entry_addition == 1) {
-        return 0; // Not enough space
-    } else if (entry_addition == 2) {
+    if (entry_addition == 2) {
         return 1;
     } else if (entry_addition != 0) {
         return -1; // Unknown error
     }
     
+    // Write data
+    if (!request->is_directory) {
+        allocate_node_blocks(request->buf, &new_inode, inode_to_bgd(request->parent_inode));
+    } else {
+        init_directory_table(&new_inode, new_inode_number, request->parent_inode);
+    }
+    
+    // Update metadata
     sync_node(&new_inode, new_inode_number);
     update_bgdt();
 
@@ -1059,7 +1062,7 @@ int8_t add_directory_entry(struct EXT2DriverRequest *request, struct EXT2Directo
             write_blocks(directory_entries[0].buf, new_block, 1);
             return 1;
         }
-        if (entry->rec_len == 0 || entry->rec_len - current_entry_len >= new_entry_len) {
+        if (entry->rec_len == 0) {
             // End of entries with enough space or feasible gaps between entries
             if (entry->rec_len != 0) {  // Adjust for inserting an entry in a gap
                 dir->rec_len = entry->rec_len - current_entry_len;
