@@ -839,7 +839,10 @@ uint32_t load_indirect_block(struct EXT2Inode *inode, void *buf, uint32_t reduce
         uint32_t filter = 1;
         for (uint8_t i=0;i<depth-1;i++) { filter *= SINGLY_INDIRECT_BLOCK_COUNT; }
         uint32_t pointers_to_read = pointers_to_pointers[reduced_block_offset / filter];
-        read_blocks(indirect_pointers+(depth-2), pointers_to_read, 1);  // Optimise this
+        if (reduced_block_offset % filter == 0) {
+            // To reduce unnecessary read from disk into indirect_pointers when already loaded
+            read_blocks(indirect_pointers+(depth-2), pointers_to_read, 1);
+        }
         return load_indirect_block(inode, buf, reduced_block_offset % filter, indirect_pointers, depth-1);
     }
     return 0;
