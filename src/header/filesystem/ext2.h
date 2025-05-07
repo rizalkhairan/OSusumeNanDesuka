@@ -474,14 +474,6 @@ static uint32_t find_free_in_bgd(uint32_t bgd_index);
  */
 void read_inode(uint32_t inode_num, struct EXT2Inode *out);
 
-/**
- * @brief find an directory in an inode
- * @param dir_inode inode to be searched
- * @param name name of the directory that is being searched
- * @param name_len length of the name of the directory that is being searched
- * @param result the directory that is found
- */
-bool find_directory_entry(struct EXT2Inode *dir_inode, char *name, uint8_t name_len, struct EXT2DirectoryEntry *result);
 
 // Helper to find first free block in group, or anywhere else if one exists
 uint32_t find_free_anywhere(uint32_t bgd_index);
@@ -505,6 +497,14 @@ uint32_t allocate_additional_blocks(struct EXT2Inode *node, uint32_t preferred_b
  * @param parent_inode inode number of the parent directory
  */
 void init_directory_table(struct EXT2Inode *node, uint32_t inode, uint32_t parent_inode);
+
+/**
+ * @brief find an directory in an inode
+ * @param request the request that contains the directory name
+ * @param parent_inode the parent inode that contains the directory
+ * @param result the directory that is found
+ */
+bool find_directory_entry(struct EXT2DriverRequest *request, struct EXT2Inode *parent_inode, struct EXT2DirectoryEntry *result);
 
 /**
  * @brief get the length of an entry including the name and padding

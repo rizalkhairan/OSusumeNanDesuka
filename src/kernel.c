@@ -41,8 +41,8 @@ void kernel_setup(void) {
     }
 
 
-    // Write File
     int8_t result = 99;
+    // Write File
     char file[] = "FileXXXX has been written";
 
     struct BlockBuffer file_buf[1];
@@ -80,24 +80,37 @@ void kernel_setup(void) {
         .buffer_size = 0,
         .is_directory = false,
     };
-    result = delete(req10);    
-    struct EXT2DriverRequest req = {
-        .name = "File0001",
-        .name_len = 8,
-        .parent_inode = 2,
-        .buffer_size = 0,
-        .is_directory = false,
-    };
-    result = delete(req);
-    struct EXT2DriverRequest req20 = {
-        .name = "File0003",
-        .name_len = 8,
-        .parent_inode = 2,
-        .buffer_size = 0,
-        .is_directory = false,
-    };
-    result = delete(req20);
+    result = delete(req10);
+    // struct EXT2DriverRequest req = {
+    //     .name = "File0001",
+    //     .name_len = 8,
+    //     .parent_inode = 2,
+    //     .buffer_size = 0,
+    //     .is_directory = false,
+    // };
+    // result = delete(req);
+    // struct EXT2DriverRequest req20 = {
+    //     .name = "File0003",
+    //     .name_len = 8,
+    //     .parent_inode = 2,
+    //     .buffer_size = 0,
+    //     .is_directory = false,
+    // };
+    // result = delete(req20);
 
+
+    // find_directory_entry
+    // struct EXT2DriverRequest req2 = {
+    //     .name = "File0002",
+    //     .name_len = 8,
+    //     .parent_inode = 2,
+    //     .buffer_size = 0,
+    //     .is_directory = false,
+    // };
+    // struct EXT2Inode parent_inode;
+    // read_inode(req2.parent_inode, &parent_inode);
+    // struct EXT2DirectoryEntry entry;
+    // result = (int8_t) find_directory_entry(&req2, &parent_inode, &entry);
     char testres[] = "Test result: ";
     for (int i = 0; i < sizeof(testres); i++) {
         framebuffer_write(20, i, testres[i], 0x07, 0x00);
@@ -110,18 +123,18 @@ void kernel_setup(void) {
     // struct EXT2Inode root;
     // read_inode(2, &root);
     
-    struct EXT2Inode root;
-    read_inode(2, &root);
+    // struct EXT2Inode root;
+    // read_inode(2, &root);
 
-    struct EXT2DriverRequest req2 = {
-            .name = ".",
-            .name_len = 1,
-            .parent_inode = 2,
-            .buffer_size = 2*BLOCK_SIZE,
-            .is_directory = true,
-        };
+    // struct EXT2DriverRequest req2 = {
+    //         .name = ".",
+    //         .name_len = 1,
+    //         .parent_inode = 2,
+    //         .buffer_size = 2*BLOCK_SIZE,
+    //         .is_directory = true,
+    //     };
         
-    x = read_directory(&req2);
+    // x = read_directory(&req2);
 
     int ootori = 39;
 
