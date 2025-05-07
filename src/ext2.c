@@ -396,7 +396,7 @@ int8_t delete(struct EXT2DriverRequest request) {
 
     // Delete inode, BGD, and superblock
     // Deallocate the inode and its blocks
-    deallocate_node(request.parent_inode);
+    deallocate_node(deleted_inode_number);
     update_bgdt();
     // Superblock To do...
 }
