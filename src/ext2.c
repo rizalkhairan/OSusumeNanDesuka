@@ -1026,7 +1026,7 @@ int8_t add_directory_entry(struct EXT2DriverRequest *request, struct EXT2Directo
     memset(indirect_pointers[0].buf, 0x0, 3 * BLOCK_SIZE);
     read_blocks(directory_entries[0].buf, current_loaded_block, 1);
     struct EXT2DirectoryEntry *entry = get_directory_entry(&directory_entries[0], 0);
-    uint8_t offset = 0;
+    uint16_t offset = 0;
     uint16_t new_entry_len = get_entry_len(dir);
     uint16_t current_entry_len;
 
