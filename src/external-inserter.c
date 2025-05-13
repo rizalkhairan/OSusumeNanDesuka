@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
     printf("Filesize : %ld bytes\n", filesize);
 
     initialize_filesystem_ext2();
+    printf("Made it\n");
     uint8_t *x = image_storage;
     char *name = argv[1];
     struct EXT2DriverRequest request;

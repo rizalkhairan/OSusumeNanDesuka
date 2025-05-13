@@ -208,10 +208,11 @@ void create_ext2(void){
 }
 
 void initialize_filesystem_ext2(void){
+    struct BlockBuffer tmp;
     if(is_empty_storage()){
         create_ext2();
     } else{
-        read_blocks(&sb, 1, 1); // Read Superblock
+        read_blocks(tmp.buf, 1, 1); // Read Superblock
         struct BlockBuffer bgd_block_buf;
         int bgd_block = 2;
         read_blocks(&bgd_block_buf.buf, bgd_block, 1);
