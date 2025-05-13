@@ -412,7 +412,6 @@ uint32_t allocate_node(void){
     // Check each group's inode bitmap
     struct BlockBuffer bitmap;
     uint32_t group = GROUPS_COUNT;  // Initial invalid group
-    read_blocks(bitmap.buf, bgdt.table[group].bg_inode_bitmap, 1);
     for (uint32_t inode_number=1; inode_number<=(GROUPS_COUNT * INODES_PER_GROUP); inode_number++){
         // Check if the correct group bitmap is loaded
         if (group != inode_to_bgd(inode_number)) {
@@ -873,7 +872,7 @@ bool is_bitmap_set(struct BlockBuffer *bitmap, uint32_t bit) {
 }
 
 // Helper to find first free block in group
-static uint32_t find_free_in_bgd(uint32_t bgd_index) {
+uint32_t find_free_in_bgd(uint32_t bgd_index) {
     if (bgd_index >= GROUPS_COUNT) return 0;
     struct BlockBuffer bitmap;
     uint32_t bitmap_block = bgdt.table[bgd_index].bg_block_bitmap;
@@ -884,7 +883,7 @@ static uint32_t find_free_in_bgd(uint32_t bgd_index) {
         uint32_t byte = i / 8;
         uint8_t bit = i % 8;
 
-        if (!(bitmap.buf[byte] & (1 << bit))) {
+        if (!is_bitmap_set(&bitmap, i)) {
             set_bitmap_bit(&bitmap, i, true);
             write_blocks(&bitmap, bitmap_block, 1);
             return bgd_index * BLOCKS_PER_GROUP + i;
@@ -910,7 +909,7 @@ uint32_t find_free_anywhere(uint32_t bgd_index) {
     return 0;
 }
 // Check whether there's n blocks available to store data inside the disk
-bool exists_n_free_blocks(int n){
+bool exists_n_free_blocks(uint32_t n){
     struct BlockBuffer bitmap;
     uint32_t total = 0;
     for(uint32_t i=0;i<GROUPS_COUNT;i++){
@@ -947,8 +946,69 @@ void read_inode(uint32_t inode_num, struct EXT2Inode *out) {
     memcpy(out, b.buf + offset, INODE_SIZE);
 }
 
-uint32_t allocate_additional_blocks(struct EXT2Inode *node, uint32_t preferred_bgd, uint32_t blocks_needed) {
-    return 0; // Not implemented yet
+uint32_t allocate_additional_block(struct EXT2Inode *node, uint32_t preferred_bgd) {
+    // For efficiency, if there is not 1 + 3 blocks available (worst case), unable to request more blocks
+    if (!exists_n_free_blocks(4)) return 0; 
+    
+    uint32_t block = find_free_anywhere(preferred_bgd);
+    if (!block) return 0;
+
+    // Direct block
+    for (uint8_t i = 0; i < 12; i++) {
+        if (node->i_block[i] != 0) continue;
+        node->i_block[i] = block;
+        return block;
+    }
+
+    uint32_t new_block = block;
+    for (uint8_t i = 12; i < 14; i++) {
+        uint32_t status = allocate_additional_indirect_block(node, preferred_bgd, new_block, i - 11);
+        if (status != 0) {
+            return status;
+        }
+    }
+    return 0;
+}
+
+uint32_t allocate_additional_indirect_block(struct EXT2Inode *node, uint32_t preferred_bgd, uint32_t inserting_block, uint8_t depth) {
+    struct BlockBuffer indirect_pointers;
+    uint8_t first_indirect_inode_index = 12;
+    uint8_t indirect_inode_index = first_indirect_inode_index + depth - 1;
+    
+    // Allocate initial pointer blocks if at this indirect depth no blocks is allocated
+    if (node->i_block[indirect_inode_index] == 0) {
+        uint32_t pointer_block = inserting_block;
+        for (uint8_t level = 0; level < depth; level++) {
+            uint32_t pointer_block = find_free_anywhere(preferred_bgd);
+            if (!pointer_block) return 0;
+            memset(indirect_pointers.buf, 0x0, BLOCK_SIZE);
+            *(uint32_t *)indirect_pointers.buf = pointer_block;
+            write_blocks(&indirect_pointers, pointer_block, 1);
+            pointer_block = pointer_block;
+        }
+
+        return pointer_block;
+    }
+
+    // Attempt to insert a pointer to the inserting block into the indirect blocks 
+    uint32_t pointer_block = node->i_block[indirect_inode_index];
+    read_blocks(&indirect_pointers, pointer_block, 1);
+    for (uint8_t level = 0; level < depth; level++) {
+        uint32_t *pointers = (uint32_t *)indirect_pointers.buf;
+        for (uint8_t i = 0; i < BLOCK_SIZE / sizeof(uint32_t); i++) {
+            if (pointers[i] == 0 && level == depth - 1) {   // Empty space to store inserting pointer
+                pointers[i] = inserting_block;
+                write_blocks(&indirect_pointers, pointer_block, 1);
+                return pointers[i];
+            } else if (pointers[i] == 0){   // Recurse deeper
+                pointer_block = pointers[i];
+                read_blocks(&indirect_pointers, pointer_block, 1);
+                pointers = (uint32_t *)indirect_pointers.buf;
+            }
+        }
+    }
+
+    return 0;
 }
 
 void init_directory_table(struct EXT2Inode *node, uint32_t inode, uint32_t parent_inode){

@@ -465,7 +465,7 @@ bool is_bitmap_set(struct BlockBuffer *bitmap, uint32_t bit);
  * @param bgd_index index of the block group descriptor
  * @return block number
  */
-static uint32_t find_free_in_bgd(uint32_t bgd_index);
+uint32_t find_free_in_bgd(uint32_t bgd_index);
 
 /**
  * @brief find an inode from an inode number
@@ -479,16 +479,15 @@ void read_inode(uint32_t inode_num, struct EXT2Inode *out);
 uint32_t find_free_anywhere(uint32_t bgd_index);
 
 // Check whether there's n blocks available to store data inside the disk
-bool exists_n_free_blocks(int n);
+bool exists_n_free_blocks(uint32_t n);
 
 /**
  * @brief allocate additional contiguous blocks for a node
  * @param node inode to allocate blocks for
  * @param preferred_bgd it is located at the node inode bgd
- * @param blocks_needed amount of blocks needed
  * @return first block address of the newly allocated blocks 
  */
-uint32_t allocate_additional_blocks(struct EXT2Inode *node, uint32_t preferred_bgd, uint32_t blocks_needed);
+uint32_t allocate_additional_block(struct EXT2Inode *node, uint32_t preferred_bgd);
 
 /**
  * @brief initialize directory entries for newly created directory
