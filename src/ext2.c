@@ -412,7 +412,7 @@ uint32_t allocate_node(void){
     // Check each group's inode bitmap
     struct BlockBuffer bitmap;
     uint32_t group = GROUPS_COUNT;  // Initial invalid group
-    read_blocks(bitmap.buf, bgdt.table[group].bg_inode_bitmap, 1);
+    // read_blocks(bitmap.buf, bgdt.table[group].bg_inode_bitmap, 1);
     for (uint32_t inode_number=1; inode_number<=(GROUPS_COUNT * INODES_PER_GROUP); inode_number++){
         // Check if the correct group bitmap is loaded
         if (group != inode_to_bgd(inode_number)) {
