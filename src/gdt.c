@@ -6,7 +6,7 @@
  * Initial SegmentDescriptor already set properly according to Intel Manual & OSDev.
  * Table entry : [{Null Descriptor}, {Kernel Code}, {Kernel Data (variable, etc)}, ...].
  */
-struct GlobalDescriptorTable global_descriptor_table = {
+static struct GlobalDescriptorTable global_descriptor_table = {
     .table = {
         { // Null Descriptor
             .segment_low = 0,
@@ -17,7 +17,6 @@ struct GlobalDescriptorTable global_descriptor_table = {
             .descriptor_privilege_level = 0,
             .segment_present = 0,
             .segment_limit_high = 0,
-            .avl = 0,
             .long_mode = 0,
             .default_operation_size = 0,
             .granularity = 0,
@@ -32,7 +31,6 @@ struct GlobalDescriptorTable global_descriptor_table = {
             .descriptor_privilege_level = 0, // Ring 0 (kernel)
             .segment_present = 1,        // Present in memory
             .segment_limit_high = 0xF,   // Limit (high)
-            .avl = 0,                    // Available for OS use
             .long_mode = 0,              // Not 64-bit
             .default_operation_size = 1, // 32-bit segment
             .granularity = 1,            // 4KB granularity
@@ -47,7 +45,6 @@ struct GlobalDescriptorTable global_descriptor_table = {
             .descriptor_privilege_level = 0, // Ring 0 (kernel)
             .segment_present = 1,        // Present in memory
             .segment_limit_high = 0xF,   // Limit (high)
-            .avl = 0,                    // Available for OS use
             .long_mode = 0,              // Not 64-bit
             .default_operation_size = 1, // 32-bit segment
             .granularity = 1,            // 4KB granularity
@@ -64,7 +61,6 @@ struct GlobalDescriptorTable global_descriptor_table = {
             .descriptor_privilege_level = 3, // Ring 3
             .segment_present = 1,
             .segment_limit_high = 0xF,
-            .avl = 0,
             .long_mode = 0,
             .default_operation_size = 1,
             .granularity = 1,
@@ -81,7 +77,6 @@ struct GlobalDescriptorTable global_descriptor_table = {
             .descriptor_privilege_level = 3,
             .segment_present = 1,
             .segment_limit_high = 0xF,
-            .avl = 0,
             .long_mode = 0,
             .default_operation_size = 1,
             .granularity = 1,
@@ -90,20 +85,20 @@ struct GlobalDescriptorTable global_descriptor_table = {
 
         /* 5. TSS DESCRIPTOR (Task State Segment) */
         {
+            .segment_limit_high = (sizeof(struct TSSEntry) >> 16) & 0xF,
             .segment_low = sizeof(struct TSSEntry) & 0xFFFF, // TSS size (low)
-            .base_low = 0,               // Base set by gdt_install_tss()
+            .base_high = 0,
             .base_mid = 0,
-            .type_bit = 0x9,             // 32-bit Available TSS
+            .base_low = 0,               // Base set by gdt_install_tss()
             .descriptor_type = 0,        // System segment
+            .type_bit = 0x9,             // 32-bit Available TSS
             .descriptor_privilege_level = 0, // Only kernel can access
             .segment_present = 1,
-            .segment_limit_high = (sizeof(struct TSSEntry) >> 16) & 0xF,
-            .avl = 0,
-            .long_mode = 0,
             .default_operation_size = 1,
+            .long_mode = 0,
             .granularity = 0,            // Byte granularity
-            .base_high = 0
-        }
+        },
+        {0}
     }
 };
 

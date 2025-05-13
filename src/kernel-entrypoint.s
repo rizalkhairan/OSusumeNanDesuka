@@ -78,7 +78,6 @@ flush_cs:
     mov ds, ax
     mov es, ax
     ret
-
 set_tss_register:
     mov ax, 0x28 | 0x0          ; GDT_TSS_SELECTOR with RPL 0
     ltr ax

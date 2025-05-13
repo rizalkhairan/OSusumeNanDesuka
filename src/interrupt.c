@@ -39,6 +39,9 @@ void pic_remap(void) {
 
 void main_interrupt_handler(struct InterruptFrame frame) {
     switch (frame.int_number) {
+        case 0xE: // page fault
+            __asm__("hlt");
+            break;
         case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
             break;
@@ -51,12 +54,13 @@ void activate_keyboard_interrupt(void) {
 
 // Definisi variabel global TSS (hanya satu instance untuk seluruh sistem)
 struct TSSEntry _interrupt_tss_entry = {
-    .ss0 = GDT_KERNEL_DATA_SEGMENT_SELECTOR, 
+    .ss0  = GDT_KERNEL_DATA_SEGMENT_SELECTOR,
 };
 
-// Update esp0 di TSS dengan stack pointer kernel saat ini
 void set_tss_kernel_current_stack(void) {
     uint32_t stack_ptr;
-    __asm__ volatile ("mov %%ebp, %0" : "=r"(stack_ptr));  
-    _interrupt_tss_entry.esp0 = stack_ptr + 8;  
+    // Reading base stack frame instead esp
+    __asm__ volatile ("mov %%ebp, %0": "=r"(stack_ptr) : /* <Empty> */);
+    // Add 8 because 4 for ret address and other 4 is for stack_ptr variable
+    _interrupt_tss_entry.esp0 = stack_ptr + 8; 
 }
