@@ -248,24 +248,23 @@ int8_t read_directory(struct EXT2DriverRequest *prequest){
     return -1;
 
     // Validate parent inode
-    struct EXT2Inode parent_inode;
-    read_inode(prequest->parent_inode, &parent_inode);
-    if ((parent_inode.i_mode & 0xF000) != 0x4000) return 3; 
+    struct EXT2Inode inode;
+    read_inode(prequest->parent_inode, &inode);
+    if ((inode.i_mode & 0xF000) != 0x4000) return 3; 
 
-    // Validate if parent inode has child
-    struct EXT2DirectoryEntry entry;
-    bool found = find_directory_entry(prequest, &parent_inode, &entry); 
-    if (!found) return 2;
-
-    // Validate child is a directory
-    struct EXT2Inode child_inode;
-    read_inode(entry.inode, &child_inode);
-    if ((child_inode.i_mode & 0xF000) != 0x4000) return 1;
+    if (!mempcpy(prequest->name, ".", 1)) {
+        // If reading not this directory, find the child entry
+        // Validate if parent inode has the child
+        struct EXT2DirectoryEntry entry;
+        bool found = find_directory_entry(prequest, &inode, &entry); 
+        if (!found) return 2;
     
-    prequest->buffer_size = BLOCK_SIZE * 2;
-    // Copy blocks of directory to buf
-    load_inode_data(&child_inode, prequest->buf, prequest->buffer_size);
-
+        // Validate child is a directory
+        read_inode(entry.inode, &inode);
+        if ((inode.i_mode & 0xF000) != 0x4000) return 1;
+    }
+    
+    load_inode_data(&inode, prequest->buf, prequest->buffer_size);
     return 0;
 }
 
