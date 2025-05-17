@@ -1,6 +1,7 @@
 #include "header/interrupt/interrupt.h"
 #include "header/cpu/portio.h"
 #include "header/keyboard/keyboard.h"
+#include "header/filesystem/ext2.h"
 #include "header/cpu/gdt.h"
 
 void io_wait(void) {
@@ -45,6 +46,9 @@ void main_interrupt_handler(struct InterruptFrame frame) {
         case 0xE: // page fault
             __asm__("hlt");
             break;
+        case 0x30: // syscall interrupt
+            syscall(frame);
+            break;
         case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
             break;
@@ -71,12 +75,23 @@ void set_tss_kernel_current_stack(void) {
 void syscall(struct InterruptFrame frame) {
     switch (frame.cpu.general.eax) {
         case 0:
-            *((int8_t*) frame.cpu.general.ecx) = read(
-                (struct EXT2DriverRequest*) frame.cpu.general.ebx
-            );
+            struct EXT2DriverRequest* req = (struct EXT2DriverRequest*) frame.cpu.general.ebx;
+            *((int8_t*) frame.cpu.general.ecx) = read(*((struct EXT2DriverRequest*) frame.cpu.general.ebx));
+            break;
+        case 1:
+            // read directory
+            break;
+        case 2:
+            // write
+            break;
+        case 3:
+            // delete
             break;
         case 4:
             get_keyboard_buffer((char*) frame.cpu.general.ebx);
+            break;
+        case 5:
+            // putchar (?)
             break;
         case 6:
             puts(
@@ -85,7 +100,7 @@ void syscall(struct InterruptFrame frame) {
                 frame.cpu.general.edx
             ); // Assuming puts() exist in kernel
             break;
-        case 7: 
+        case 7:
             keyboard_state_activate();
             break;
     }
@@ -95,6 +110,6 @@ void syscall(struct InterruptFrame frame) {
 // this is just an example for quick debugging. more sophisticated version needed
 void puts(char* buf, uint32_t count, uint8_t color) {
     for (uint32_t i = 0; i < count; i++) {
-        framebuffer_write(buf[i], color);
+        framebuffer_write(2, 2+i, buf[i], 0x07, 0x00);
     }
 }
