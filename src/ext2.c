@@ -644,85 +644,11 @@ void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t preferred_
     uint32_t blocks_needed = (node->i_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
     uint32_t blocks_allocated = 0;
     char *data_ptr = (char *)ptr;
-
     // Direct blocks
-    for (int i = 0; i < 12 && blocks_allocated < blocks_needed; i++) {
-        if (node->i_block[i] == 0) {
-            uint32_t block = find_free_anywhere(preferred_bgd);
-            if (!block) return;
-
-            node->i_block[i] = block;
-            write_blocks(data_ptr + (blocks_allocated * BLOCK_SIZE), block, 1);
-            blocks_allocated++;
-        }
-    }
-
-    // Singly indirect block
-    if (blocks_allocated < blocks_needed) {
-        if (node->i_block[12] == 0) {
-            node->i_block[12] = find_free_anywhere(preferred_bgd);
-            if (!node->i_block[12]) return;
-            uint32_t empty[BLOCK_SIZE / sizeof(uint32_t)] = {0};
-            write_blocks(empty, node->i_block[12], 1);
-        }
-
-        uint32_t indirect[BLOCK_SIZE / sizeof(uint32_t)];
-        read_blocks(indirect, node->i_block[12], 1);
-
-        for (int i = 0; i < BLOCK_SIZE / sizeof(uint32_t) && blocks_allocated < blocks_needed; i++) {
-            if (indirect[i] == 0) {
-                uint32_t block = find_free_anywhere(preferred_bgd);
-                if (!block) break;
-
-                indirect[i] = block;
-                write_blocks(data_ptr + (blocks_allocated * BLOCK_SIZE), block, 1);
-                blocks_allocated++;
-            }
-        }
-
-        write_blocks(indirect, node->i_block[12], 1);
-    }
-
-    // Doubly indirect block
-    if (blocks_allocated < blocks_needed) {
-        if (node->i_block[13] == 0) {
-            node->i_block[13] = find_free_anywhere(preferred_bgd);
-            if (!node->i_block[13]) return;
-
-            uint32_t empty[BLOCK_SIZE / sizeof(uint32_t)] = {0};
-            write_blocks(empty, node->i_block[13], 1);
-        }
-
-        uint32_t doubly_indirect[BLOCK_SIZE / sizeof(uint32_t)];
-        read_blocks(doubly_indirect, node->i_block[13], 1);
-
-        for (int i = 0; i < BLOCK_SIZE / sizeof(uint32_t) && blocks_allocated < blocks_needed; i++) {
-            if (doubly_indirect[i] == 0) {
-                doubly_indirect[i] = find_free_anywhere(preferred_bgd);
-                if (!doubly_indirect[i]) break;
-
-                uint32_t empty[BLOCK_SIZE / sizeof(uint32_t)] = {0};
-                write_blocks(empty, doubly_indirect[i], 1);
-            }
-
-            uint32_t singly_indirect[BLOCK_SIZE / sizeof(uint32_t)];
-            read_blocks(singly_indirect, doubly_indirect[i], 1);
-
-            for (int j = 0; j < BLOCK_SIZE / sizeof(uint32_t) && blocks_allocated < blocks_needed; j++) {
-                if (singly_indirect[j] == 0) {
-                    uint32_t block = find_free_anywhere(preferred_bgd);
-                    if (!block) break;
-
-                    singly_indirect[j] = block;
-                    write_blocks(data_ptr + (blocks_allocated * BLOCK_SIZE), block, 1);
-                    blocks_allocated++;
-                }
-            }
-
-            write_blocks(singly_indirect, doubly_indirect[i], 1);
-        }
-
-        write_blocks(doubly_indirect, node->i_block[13], 1);
+    for (uint32_t i = 0; i < blocks_needed; i++) {
+        uint32_t block_number = allocate_additional_block(node, preferred_bgd);
+        if (block_number == 0) return;
+        write_blocks(data_ptr + (i * BLOCK_SIZE), block_number, 1);
     }
 
     node->i_blocks = blocks_allocated;
