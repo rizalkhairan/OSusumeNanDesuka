@@ -3,6 +3,10 @@
 
 #define BLOCK_COUNT 16
 
+uint32_t cwd_inode = 2;
+char cwd_name[255];
+uint16_t cwd_name_len;
+
 void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx) {
     __asm__ volatile("mov %0, %%ebx" : /* <Empty> */ : "r"(ebx));
     __asm__ volatile("mov %0, %%ecx" : /* <Empty> */ : "r"(ecx));
@@ -14,7 +18,8 @@ void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx) {
 }
 
 int main(void) {
-    int32_t retcode;
+    cwd_name[0] = '.';
+    cwd_name_len = 1;
 
     syscall(7, 0, 0, 0);
     while(true){
@@ -24,5 +29,6 @@ int main(void) {
             syscall(6, (uint32_t)&c, 1, 0xF);
         }
     }
+
     return 0;
 }
