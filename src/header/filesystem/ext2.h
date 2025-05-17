@@ -490,6 +490,15 @@ bool exists_n_free_blocks(uint32_t n);
 uint32_t allocate_additional_block(struct EXT2Inode *node, uint32_t preferred_bgd);
 
 /**
+ * @brief insert a block into indirect blocks
+ * @param node inode to allocate blocks for
+ * @param preferred_bgd it is located at the node inode bgd
+ * @param inserting_block block to be inserted
+ * @return first block address of the newly allocated blocks 
+ */
+uint32_t allocate_additional_indirect_block(struct EXT2Inode *node, uint32_t preferred_bgd, uint32_t inserting_block, uint8_t depth);
+
+/**
  * @brief initialize directory entries for newly created directory
  * @param node inode to allocate blocks for
  * @param inode inode number of the directory

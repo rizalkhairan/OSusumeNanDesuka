@@ -355,6 +355,8 @@ int8_t write(struct EXT2DriverRequest *request){
     int8_t entry_addition = add_directory_entry(request, &new_entry, &parent_inode);
     if (entry_addition == 2) {
         return 1;
+    } else if (entry_addition == 1) {
+        // Do nothing
     } else if (entry_addition != 0) {
         return -1; // Unknown error
     }
@@ -368,6 +370,7 @@ int8_t write(struct EXT2DriverRequest *request){
     
     // Update metadata
     sync_node(&new_inode, new_inode_number);
+    sync_node(&parent_inode, request->parent_inode);
     update_bgdt();
 
     return 0;
@@ -977,17 +980,18 @@ uint32_t allocate_additional_indirect_block(struct EXT2Inode *node, uint32_t pre
     
     // Allocate initial pointer blocks if at this indirect depth no blocks is allocated
     if (node->i_block[indirect_inode_index] == 0) {
-        uint32_t pointer_block = inserting_block;
+        uint32_t pointed_block = inserting_block;
         for (uint8_t level = 0; level < depth; level++) {
             uint32_t pointer_block = find_free_anywhere(preferred_bgd);
             if (!pointer_block) return 0;
             memset(indirect_pointers.buf, 0x0, BLOCK_SIZE);
-            *(uint32_t *)indirect_pointers.buf = pointer_block;
+            *(uint32_t *)indirect_pointers.buf = pointed_block;
             write_blocks(&indirect_pointers, pointer_block, 1);
-            pointer_block = pointer_block;
+            pointed_block = pointer_block;
         }
+        node->i_block[indirect_inode_index] = pointed_block;
 
-        return pointer_block;
+        return inserting_block;
     }
 
     // Attempt to insert a pointer to the inserting block into the indirect blocks 
@@ -1093,7 +1097,7 @@ int8_t add_directory_entry(struct EXT2DriverRequest *request, struct EXT2Directo
     dir->rec_len = 0;
     for (;;) {  // Iterate linked list of entries
         offset += entry->rec_len;
-        while (offset > BLOCK_SIZE) {
+        while (offset >= BLOCK_SIZE) {
             // Load new block
             offset -=  BLOCK_SIZE;
             current_loaded_block = load_inode_next_block(parent_inode, directory_entries[0].buf, block_count, indirect_pointers);
@@ -1109,7 +1113,7 @@ int8_t add_directory_entry(struct EXT2DriverRequest *request, struct EXT2Directo
         current_entry_len = get_entry_len(entry);
         if (entry->rec_len == 0 && offset + current_entry_len + new_entry_len > BLOCK_SIZE) {
             // End of entries but need to allocate new block
-            uint32_t new_block = allocate_additional_blocks(parent_inode, parent_inode->i_block[0] / BLOCKS_PER_GROUP, 1);
+            uint32_t new_block = allocate_additional_block(parent_inode, parent_inode->i_block[0] / BLOCKS_PER_GROUP);
             if (new_block == 0) { return 2; } // No free block available
             entry->rec_len = BLOCK_SIZE - offset;
             memcpy(directory_entries[0].buf + offset, entry, sizeof(struct EXT2DirectoryEntry));
