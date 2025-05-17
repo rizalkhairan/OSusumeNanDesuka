@@ -643,14 +643,14 @@ void allocate_node_blocks(void *ptr, struct EXT2Inode *node, uint32_t preferred_
     uint32_t blocks_needed = (node->i_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
     uint32_t blocks_allocated = 0;
     char *data_ptr = (char *)ptr;
-    // Direct blocks
+
+    node->i_blocks = 0;
+    node->i_size = 0;
     for (uint32_t i = 0; i < blocks_needed; i++) {
         uint32_t block_number = allocate_additional_block(node, preferred_bgd);
         if (block_number == 0) return;
         write_blocks(data_ptr + (i * BLOCK_SIZE), block_number, 1);
     }
-
-    node->i_blocks = blocks_allocated;
 }
 
 // Write inode and its bitmap to disk
@@ -814,6 +814,8 @@ uint32_t find_free_in_bgd(uint32_t bgd_index) {
         if (!is_bitmap_set(&bitmap, i)) {
             set_bitmap_bit(&bitmap, i, true);
             write_blocks(&bitmap, bitmap_block, 1);
+            bgdt.table[bgd_index].bg_free_blocks_count--;
+            sb.s_free_blocks_count--;
             return bgd_index * BLOCKS_PER_GROUP + i;
         }
     }
@@ -881,6 +883,8 @@ uint32_t allocate_additional_block(struct EXT2Inode *node, uint32_t preferred_bg
     uint32_t block = find_free_anywhere(preferred_bgd);
     if (!block) return 0;
 
+    node->i_blocks++;
+    node->i_size += BLOCK_SIZE;
     // Direct block
     for (uint8_t i = 0; i < 12; i++) {
         if (node->i_block[i] != 0) continue;
@@ -913,6 +917,8 @@ uint32_t allocate_additional_indirect_block(struct EXT2Inode *node, uint32_t pre
             *(uint32_t *)indirect_pointers.buf = pointed_block;
             write_blocks(&indirect_pointers, pointer_block, 1);
             pointed_block = pointer_block;
+
+            node->i_blocks++;   // Also count the indirect block
         }
         node->i_block[indirect_inode_index] = pointed_block;
 
