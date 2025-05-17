@@ -252,7 +252,7 @@ int8_t read_directory(struct EXT2DriverRequest *prequest){
     read_inode(prequest->parent_inode, &inode);
     if ((inode.i_mode & 0xF000) != 0x4000) return 3; 
 
-    if (!mempcpy(prequest->name, ".", 1)) {
+    if (memcmp(prequest->name, ".", 1) != 0) {
         // If reading not this directory, find the child entry
         // Validate if parent inode has the child
         struct EXT2DirectoryEntry entry;
