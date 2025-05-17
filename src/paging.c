@@ -22,11 +22,11 @@ __attribute__((aligned(0x1000))) struct PageDirectory _paging_kernel_page_direct
 
 static struct PageManagerState page_manager_state = {
     .page_frame_map = {
-        [0]                            = true,
+        [0]                            = false,
         [1 ... PAGE_FRAME_MAX_COUNT-1] = false
     },
     // TODO: Initialize page manager state properly
-    .free_page_frame_count = PAGE_FRAME_MAX_COUNT-1
+    .free_page_frame_count = PAGE_FRAME_MAX_COUNT
     // The above was added
 };
 
@@ -51,10 +51,8 @@ void flush_single_tlb(void *virtual_addr) {
 /* --- Memory Management --- */
 // TODO: Implement
 bool paging_allocate_check(uint32_t amount) {
-    // TODO: Check whether requested amount is available
-    if (page_manager_state.free_page_frame_count < amount) return false;
-    // The above was added
-    return true;
+    uint32_t required_frames = (amount + PAGE_FRAME_SIZE - 1) / PAGE_FRAME_SIZE; // this replicates ceil
+    return page_manager_state.free_page_frame_count >= required_frames;
 }
 
 
@@ -72,7 +70,7 @@ bool paging_allocate_user_page_frame(struct PageDirectory *page_dir, void *virtu
 
     // FIRST FIT STRATEGY
     int free_physical_frame_idx = -1;
-    for (int i = 1; i < PAGE_FRAME_MAX_COUNT; i++) {
+    for (int i = 0; i < PAGE_FRAME_MAX_COUNT; i++) {
         if (!page_manager_state.page_frame_map[i]) {
             page_manager_state.page_frame_map[i] = true;
             free_physical_frame_idx = i;
@@ -82,12 +80,16 @@ bool paging_allocate_user_page_frame(struct PageDirectory *page_dir, void *virtu
     }
     if (free_physical_frame_idx == -1) return false;
 
-    uint32_t physical_addr = free_physical_frame_idx * 0x400000;
+    uint32_t physical_addr = free_physical_frame_idx * PAGE_FRAME_SIZE;
     struct PageDirectoryEntryFlag flag = {
         .present_bit       = 1,
         .write_bit         = 1,
         .user_bit          = 1,
-        .use_pagesize_4_mb = 1
+        .write_through_bit = 0,
+        .cache_disabled_bit = 0,
+        .accessed_bit = 0,
+        .dirty_bit = 0,
+        .use_pagesize_4_mb = 1,
     };
     update_page_directory_entry(page_dir, (void *)physical_addr, virtual_addr, flag);
 
@@ -100,17 +102,26 @@ bool paging_free_user_page_frame(struct PageDirectory *page_dir, void *virtual_a
      * - Use the page_dir.table values to check mapped physical frame
      * - Remove the entry by setting it into 0
      */
-    uint32_t page_directory_idx = ((uint32_t)virtual_addr >> 22) & 0x3FF;
-    if (!page_dir->table[page_directory_idx].flag.present_bit) return false;
+    uint32_t virtual_addr_u32 = (uint32_t)virtual_addr;
+    uint32_t page_index = virtual_addr_u32 >> 22;
 
-    uint32_t physical_addr = (page_dir->table[page_directory_idx].lower_address << 22);
-    int physical_frame_idx = physical_addr / 0x400000;
+    struct PageDirectoryEntry *entry = &page_dir->table[page_index];
 
-    page_manager_state.page_frame_map[physical_frame_idx] = false;
+    if (!entry->flag.present_bit || !entry->flag.user_bit) {
+        return false; // Not a valid user mapping
+    }
+
+    uint32_t frame_index = (entry->lower_address | (entry->higher_address << 10));
+    if (frame_index >= PAGE_FRAME_MAX_COUNT) {
+        return false;
+    }
+
+    page_manager_state.page_frame_map[frame_index] = false;
     page_manager_state.free_page_frame_count++;
 
-    struct PageDirectoryEntryFlag empty_flag = {0};
-    update_page_directory_entry(page_dir, NULL, virtual_addr, empty_flag);
+    // Clear the PDE
+    memset(entry, 0, sizeof(struct PageDirectoryEntry));
+    flush_single_tlb(virtual_addr);
 
     return true;
 }

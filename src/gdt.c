@@ -58,7 +58,7 @@ static struct GlobalDescriptorTable global_descriptor_table = {
             .base_mid = 0x00,
             .type_bit = 0b1010,          // Code: Executable, Readable
             .descriptor_type = 1,
-            .descriptor_privilege_level = 3, // Ring 3
+            .descriptor_privilege_level = 0x3, // Ring 3
             .segment_present = 1,
             .segment_limit_high = 0xF,
             .long_mode = 0,
@@ -74,7 +74,7 @@ static struct GlobalDescriptorTable global_descriptor_table = {
             .base_mid = 0x00,
             .type_bit = 0b0010,          // Data: Readable, Writable
             .descriptor_type = 1,
-            .descriptor_privilege_level = 3,
+            .descriptor_privilege_level = 0x3,
             .segment_present = 1,
             .segment_limit_high = 0xF,
             .long_mode = 0,
@@ -85,8 +85,8 @@ static struct GlobalDescriptorTable global_descriptor_table = {
 
         /* 5. TSS DESCRIPTOR (Task State Segment) */
         {
-            .segment_limit_high = (sizeof(struct TSSEntry) >> 16) & 0xF,
-            .segment_low = sizeof(struct TSSEntry) & 0xFFFF, // TSS size (low)
+            .segment_limit_high = (sizeof(struct TSSEntry) & (0xF << 16)) >> 16,
+            .segment_low = sizeof(struct TSSEntry), // TSS size (low)
             .base_high = 0,
             .base_mid = 0,
             .base_low = 0,               // Base set by gdt_install_tss()
@@ -119,4 +119,10 @@ void gdt_install_tss(void) {
     global_descriptor_table.table[5].base_high = (base & (0xFF << 24)) >> 24;
     global_descriptor_table.table[5].base_mid  = (base & (0xFF << 16)) >> 16;
     global_descriptor_table.table[5].base_low  = base & 0xFFFF;
+
+    // for testing purposes only
+    uint8_t a = global_descriptor_table.table[5].base_high;
+    uint8_t b = global_descriptor_table.table[5].base_mid;
+    uint16_t c = global_descriptor_table.table[5].base_low;
+
 }

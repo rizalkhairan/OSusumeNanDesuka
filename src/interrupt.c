@@ -39,6 +39,9 @@ void pic_remap(void) {
 
 void main_interrupt_handler(struct InterruptFrame frame) {
     switch (frame.int_number) {
+        case 0xD: // general protection fault
+            __asm__("hlt");
+            break;
         case 0xE: // page fault
             __asm__("hlt");
             break;

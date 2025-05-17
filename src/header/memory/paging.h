@@ -28,8 +28,6 @@ extern struct PageDirectory _paging_kernel_page_directory;
  */
 struct PageDirectoryEntryFlag { // Paging flags
     uint8_t present_bit         : 1; // (P)
-    // TODO : Continue. Note: Only 8-bit flags
-    // Intel 64 and IA-32 Architectures Software Developer’s Manual (Vol 3A, Chapter 4: Paging, Figure 4-4 PDE: 4MB Page). 
     uint8_t write_bit           : 1; // (R/W) -> 1 means can write, else just read
     uint8_t user_bit            : 1; // (U/S) -> 1 means user can access, else only kernel can
     uint8_t write_through_bit   : 1; // (PWT) -> 1 means write-through caching is enabled, else write-back caching is used
@@ -78,7 +76,7 @@ struct PageDirectoryEntry {
 struct PageDirectory {
     // TODO : Implement
     volatile struct PageDirectoryEntry table[PAGE_ENTRY_COUNT];
-} __attribute__((packed));
+} __attribute__((aligned(0x1000)));
 
 /**
  * Containing page manager states.

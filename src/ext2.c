@@ -275,7 +275,7 @@ int8_t read(struct EXT2DriverRequest request){
     struct EXT2DirectoryEntry entry;
 
     // Unknown / invalid input
-    if (request.buf == NULL || request.buffer_size == 0 || request.name == NULL || request.name_len == 0) {
+    if (request.buffer_size == 0 || request.name == NULL || request.name_len == 0) {
         return -1;
     }
     if (request.is_directory) {
