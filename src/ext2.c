@@ -245,7 +245,7 @@ bool is_directory_empty(uint32_t inode){
 
 int8_t read_directory(struct EXT2DriverRequest *prequest){
      // Unknown / invalid input
-    if (prequest == NULL || prequest->buf != NULL || prequest->buffer_size == 0)
+    if (prequest == NULL || prequest->buffer_size == 0)
     return -1;
 
     // Validate parent inode

@@ -75,30 +75,34 @@ void set_tss_kernel_current_stack(void) {
 void syscall(struct InterruptFrame frame) {
     switch (frame.cpu.general.eax) {
         case 0:
-            struct EXT2DriverRequest* req = (struct EXT2DriverRequest*) frame.cpu.general.ebx;
+            // read file
             *((int8_t*) frame.cpu.general.ecx) = read(*((struct EXT2DriverRequest*) frame.cpu.general.ebx));
             break;
         case 1:
             // read directory
+            *((int8_t*) frame.cpu.general.ecx) = read_directory(((struct EXT2DriverRequest*) frame.cpu.general.ebx));
             break;
         case 2:
             // write
+            *((int8_t*) frame.cpu.general.ecx) = write(((struct EXT2DriverRequest*) frame.cpu.general.ebx));
             break;
         case 3:
             // delete
+            *((int8_t*) frame.cpu.general.ecx) = delete(*((struct EXT2DriverRequest*) frame.cpu.general.ebx));
             break;
         case 4:
             get_keyboard_buffer((char*) frame.cpu.general.ebx);
             break;
         case 5:
-            // putchar (?)
+            // text output via putchar()
             break;
         case 6:
+            // text output via puts()
             puts(
                 (char*) frame.cpu.general.ebx, 
                 frame.cpu.general.ecx, 
                 frame.cpu.general.edx
-            ); // Assuming puts() exist in kernel
+            );
             break;
         case 7:
             keyboard_state_activate();
@@ -106,6 +110,10 @@ void syscall(struct InterruptFrame frame) {
     }
 }
 
+// how do we store current row and col?
+void putchar(char a, uint8_t color){
+    // TODO
+}
 
 // this is just an example for quick debugging. more sophisticated version needed
 void puts(char* buf, uint32_t count, uint8_t color) {

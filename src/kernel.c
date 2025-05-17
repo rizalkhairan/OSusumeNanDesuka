@@ -13,10 +13,6 @@
 #include "header/memory/paging.h"
 
 void kernel_setup(void) {
-    // untuk ngetes paging. harusnya tidak page fault
-    // paging_allocate_user_page_frame(&_paging_kernel_page_directory, (void*) 0x500000);
-    // *((uint8_t*) 0x500000) = 1;
-
     load_gdt(&_gdt_gdtr);
     pic_remap();
     initialize_idt();
@@ -25,7 +21,6 @@ void kernel_setup(void) {
     framebuffer_set_cursor(0, 0);
     initialize_filesystem_ext2();
     gdt_install_tss();
-    uint32_t a = (uint32_t)&_interrupt_tss_entry; // addr
     set_tss_register();
 
     // Allocate first 4 MiB virtual memory
@@ -43,17 +38,7 @@ void kernel_setup(void) {
     };
     read(request);
 
-    // Set TSS $esp pointer and jump into shell 
     set_tss_kernel_current_stack();
-    // uint32_t *user_stack = (uint32_t*)(0x400000 - 4);
-    // *user_stack = 0x12345678; // should NOT fault if page mapped correctly
-    // uint32_t index = ((uint32_t) ((void*) 0x3FFFFC)) >> 22;
-    // struct PageDirectoryEntry entry = _paging_kernel_page_directory.table[index];
-    // *((uint8_t*) 0x500000) = 1;
-
-    void *buff = *((uint8_t*) 0x3FFFFC); // isinya harusnya si shell code
     kernel_execute_user_program((uint8_t*) 0);
-
-    int kusanagi = 39;
     while (true);
 }
