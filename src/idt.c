@@ -28,6 +28,14 @@ void initialize_idt(void) {
         );
     }
 
+    // for syscall
+    set_interrupt_gate(
+            0x30,                      // Vector
+            isr_stub_table[0x30],      // Handler Address
+            GDT_KERNEL_CODE_SEGMENT_SELECTOR, // Segment
+            3                       // Privilege (0 = kernel)
+        );
+
     // Load IDT and enable interrupts
     __asm__ volatile("lidt %0" : : "m"(_idt_idtr));
     __asm__ volatile("sti");
