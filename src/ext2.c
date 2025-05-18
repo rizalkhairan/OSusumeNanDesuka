@@ -336,7 +336,7 @@ int8_t write(struct EXT2DriverRequest *request){
         new_entry.inode = new_inode_number;
         new_entry.rec_len = 0;
         new_entry.name_len = request->name_len;
-        new_entry.file_type = 1; // 1 = file reguler
+        new_entry.file_type = EXT2_FT_REG_FILE;
         
     }
     // Write directory
@@ -348,7 +348,7 @@ int8_t write(struct EXT2DriverRequest *request){
         
         new_entry.inode = new_inode_number;
         new_entry.name_len = request->name_len;
-        new_entry.file_type = 2;
+        new_entry.file_type = EXT2_FT_DIR;
     }
     // Entry insertion
     int8_t entry_addition = add_directory_entry(request, &new_entry, &parent_inode);
@@ -925,24 +925,66 @@ uint32_t allocate_additional_indirect_block(struct EXT2Inode *node, uint32_t pre
         return inserting_block;
     }
 
+    uint8_t POINTERS_PER_BLOCK = BLOCK_SIZE / sizeof(uint32_t);
     // Attempt to insert a pointer to the inserting block into the indirect blocks 
     uint32_t pointer_block = node->i_block[indirect_inode_index];
     read_blocks(&indirect_pointers, pointer_block, 1);
+    uint8_t additional_block_needed = 0;
     for (uint8_t level = 0; level < depth; level++) {
         uint32_t *pointers = (uint32_t *)indirect_pointers.buf;
-        for (uint8_t i = 0; i < BLOCK_SIZE / sizeof(uint32_t); i++) {
-            if (pointers[i] == 0 && level == depth - 1) {   // Empty space to store inserting pointer
+        for (uint8_t i = 0; i < POINTERS_PER_BLOCK; i++) {
+            if (level == depth - 1 && pointers[i] == 0) {   // Empty space to store inserting pointer
                 pointers[i] = inserting_block;
                 write_blocks(&indirect_pointers, pointer_block, 1);
-                return pointers[i];
-            } else if (pointers[i] == 0){   // Recurse deeper
-                pointer_block = pointers[i];
+                return inserting_block;
+            } else if (level == depth - 1 && pointers[i] != 0) {
+                if (i == POINTERS_PER_BLOCK - 1) {
+                    additional_block_needed += 1;
+                }
+            } else if (level != depth - 1 && pointers[i] == 0 && i>0){
+                // Impossible for intermediary blocks to be empty
+                pointer_block = pointers[i-1];
                 read_blocks(&indirect_pointers, pointer_block, 1);
-                pointers = (uint32_t *)indirect_pointers.buf;
+                if (i == POINTERS_PER_BLOCK - 1) {
+                    additional_block_needed += 1;
+                }
+                break;
             }
         }
     }
 
+    if (additional_block_needed >= depth || additional_block_needed == 0) {
+        return 0;
+    }
+    // Additional block needed here
+    uint32_t pointed_block = inserting_block;
+    for (uint8_t i = 0; i < additional_block_needed; i++) {
+        uint32_t pointer_block = find_free_anywhere(preferred_bgd);
+        if (!pointer_block) return 0;
+        memset(indirect_pointers.buf, 0x0, BLOCK_SIZE);
+        *(uint32_t *)indirect_pointers.buf = pointed_block;
+        write_blocks(&indirect_pointers, pointer_block, 1);
+        pointed_block = pointer_block;
+        
+        node->i_blocks++;
+    }
+    pointer_block = node->i_block[indirect_inode_index];
+    read_blocks(&indirect_pointers, pointer_block, 1);
+    uint32_t inserting_block_pointer = pointed_block;
+    for (uint8_t level = 0; level < additional_block_needed; level++) {
+        uint32_t *pointers = (uint32_t *)indirect_pointers.buf;
+        for (uint8_t i = 0; i < POINTERS_PER_BLOCK; i++) {
+            if (level == additional_block_needed - 1 && pointers[i] == 0) {
+                pointers[i] = inserting_block_pointer;
+                write_blocks(&indirect_pointers, pointer_block, 1);
+                return inserting_block;
+            } else if (level != additional_block_needed - 1 && pointers[i] == 0 && i>0) {
+                pointer_block = pointers[i-1];
+                read_blocks(&indirect_pointers, pointer_block, 1);
+                break;
+            }
+        }
+    }
     return 0;
 }
 
