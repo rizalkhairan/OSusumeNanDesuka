@@ -1144,7 +1144,11 @@ int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct E
                 entry->inode = 0;   // For safe measure
                 write_blocks(&directory_entries[0], current_loaded_block, 1);
                 read_blocks(&directory_entries[0], prev_loaded_block, 1);
-                prev_entry->rec_len += entry->rec_len;  // Point to the same offset in the stack as was previously loaded
+                if (entry->rec_len == 0) {
+                    prev_entry->rec_len = 0;
+                } else {
+                    prev_entry->rec_len += entry->rec_len;  // Point to the same offset in the stack as was previously loaded
+                }
                 write_blocks(&directory_entries[0], prev_loaded_block, 1);
                 return 0;
             }
