@@ -3,6 +3,10 @@
 #include "header/keyboard/keyboard.h"
 #include "header/filesystem/ext2.h"
 #include "header/cpu/gdt.h"
+#include "header/text/framebuffer.h"
+#include "header/terminal/terminal.h"
+
+static TerminalBuffer terminal_buffer;
 
 void io_wait(void) {
     out(0x80, 0);
@@ -107,17 +111,44 @@ void syscall(struct InterruptFrame frame) {
         case 7:
             keyboard_state_activate();
             break;
+        case 8:
+            framebuffer_clear();
+            break;
+        case 9:
+            framebuffer_set_cursor((uint8_t) frame.cpu.general.ebx, (uint8_t) frame.cpu.general.ecx);
+            break;
+        case 10:
+            TerminalBuffer* src = (TerminalBuffer*) frame.cpu.general.ebx;
+            terminal_buffer = *src;
+            break;
     }
 }
 
-// how do we store current row and col?
 void putchar(char a, uint8_t color){
     // TODO
 }
 
-// this is just an example for quick debugging. more sophisticated version needed
 void puts(char* buf, uint32_t count, uint8_t color) {
+    int r = terminal_buffer.current_line_row;
+    int c = terminal_buffer.current_line_col;
+
+    framebuffer_write(20, 0, 96 + (r), 0xF, 0x0);
+    framebuffer_write(21, 0, 96 + (c), 0xF, 0x0);
+    framebuffer_write(22, 0, 96 + (count), 0xF, 0x0);
+
     for (uint32_t i = 0; i < count; i++) {
-        framebuffer_write(2, 2+i, buf[i], 0x07, 0x00);
+        framebuffer_write(r, c, buf[i], color, 0x00);
+        if (++c >= FRAMEBUFFER_ROW_LENGTH) {
+            c = 0;
+            ++r;
+        }
+    }
+    
+    for (int i = count; i < MAX_LINE_LENGTH; ++i) {
+        framebuffer_write(r, c, ' ', 0xF, 0x0);
+        if (++c >= FRAMEBUFFER_ROW_LENGTH) {
+            c = 0;
+            ++r;
+        }
     }
 }
