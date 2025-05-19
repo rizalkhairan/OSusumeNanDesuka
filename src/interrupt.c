@@ -164,10 +164,6 @@ void puts(char* buf, uint32_t count, uint8_t color) {
     int r = terminal_buffer.current_line_row;
     int c = terminal_buffer.current_line_col;
 
-    framebuffer_write(20, 0, 96 + (r), 0xF, 0x0);
-    framebuffer_write(21, 0, 96 + (c), 0xF, 0x0);
-    framebuffer_write(22, 0,  + (count), 0xF, 0x0);
-
     for (uint32_t i = 0; i < count; i++) {
         framebuffer_write(r, c, buf[i], color, 0x00);
         if (++c >= FRAMEBUFFER_ROW_LENGTH) {

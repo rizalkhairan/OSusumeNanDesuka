@@ -50,7 +50,7 @@ int main(void) {
     terminal_initialize();
     syscall(7, 0, 0, 0);
     // execute("cd kusanagi", 11);
-    // execute("ls", 2);
+    // execute("cp yoisaki asahina", 18);
     while(true){
         char c;
         syscall(4, &c, 0, 0);
@@ -68,14 +68,14 @@ void terminal_initialize(){
     syscall(8, 0, 0, 0);
 
     char* filepath = "OSusumeWaNanDesuka?:.$ ";
-    syscall(6, filepath, filepath_len, 0x9);
+    syscall(6, filepath, filepath_len, 0xB);
 
     // Set cursor correct position
     terminal_buffer.hist_length = 0;
     terminal_buffer.current_line = 0;
     terminal_buffer.viewed_line = 0;
     terminal_buffer.current_line_row = 0; // will change depending on offset
-    terminal_buffer.current_line_col = filepath_len; // will change depending on offset
+    terminal_buffer.current_line_col = filepath_len + 1; // will change depending on offset
     terminal_buffer.cursor_row = terminal_buffer.current_line_row;
     terminal_buffer.cursor_col = terminal_buffer.current_line_col;
     TerminalLine* line = &terminal_buffer.history[0];
@@ -101,7 +101,7 @@ void write_path(){
     terminal_buffer.current_line_col = 0;
     terminal_buffer.current_line_row += (line->length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-    syscall(6, result, 22 + fullpath_length, 0x9);
+    syscall(6, result, 22 + fullpath_length, 0xB);
     terminal_buffer.current_line_col = 22 + fullpath_length;
    
     terminal_buffer.cursor_row = terminal_buffer.current_line_row;
@@ -464,10 +464,6 @@ void updateAbsolutePath(){
 void execute(const char* input, uint32_t length){
     ParsedInput args = parse_input_n(input, length, 2);
     if(args.argc==0){
-        terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
-        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, "welp", 4, 0x4);
         return;
     }
 
@@ -537,7 +533,7 @@ void cd(const char* input, uint32_t length){
         terminal_buffer.current_line_col = 0;
         terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, "invalid arg2", 12, 0x5);
+        syscall(6, "invalid arg2", 12, 0x4);
     } else{
         // parsing sukses
         ParsedInput path = parse_input_all(args.argv[0].buffer, args.argv[0].length, '/');
@@ -562,7 +558,7 @@ void cd(const char* input, uint32_t length){
         }
 
         cwd_inode = res;
-        uint32_t a = cwd_inode;
+        // uint32_t a = cwd_inode;
         cwd_name_len = absolute_path[depth].length;
         memcpy(cwd_name, absolute_path[depth].name, absolute_path[depth].length);
         updateAbsolutePath();
@@ -579,7 +575,7 @@ void cat(const char* input, uint32_t length) {
         terminal_buffer.current_line_col = 0;
         terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, "command not found", 17, 0x2);
+        syscall(6, "command not found", 17, 0x4);
         return;
     }
     struct EXT2DriverRequest request;
@@ -633,7 +629,7 @@ void cat(const char* input, uint32_t length) {
         terminal_buffer.current_line_col = 0;
         terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, "unknown error", 13, 0x2);
+        syscall(6, "unknown error", 13, 0x4);
         return;
     }
     uint32_t retval = 0;
@@ -649,7 +645,7 @@ void ls(const char* input, uint32_t length) {
         terminal_buffer.current_line_col = 0;
         terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, "command not found", 17, 0x3);
+        syscall(6, "command not found", 17, 0x4);
         return;
     }
     struct EXT2DriverRequest request;
@@ -674,7 +670,7 @@ void ls(const char* input, uint32_t length) {
             terminal_buffer.current_line_col = 0;
             terminal_buffer.current_line_row += (entry->name_len + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
             syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-            syscall(6, (uint32_t)name, entry->name_len, 0xF);
+            syscall(6, (uint32_t)name, entry->name_len, 0x7);
         }
         while (entry->rec_len != 0) {
             entry = get_next_directory_entry_shell(entry);
@@ -683,11 +679,14 @@ void ls(const char* input, uint32_t length) {
                 terminal_buffer.current_line_col = 0;
                 terminal_buffer.current_line_row += (entry->name_len + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
                 syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-                syscall(6, (uint32_t)name, entry->name_len, 0xF);
+                syscall(6, (uint32_t)name, entry->name_len, 0x7);
             }
         }
     } else {
-        syscall(6, (uint32_t)"Error: Unable to read directory\n", 1, 0xF);
+        terminal_buffer.current_line_col = 0;
+        terminal_buffer.current_line_row += (2 + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "unable to read directory", 24, 0x4);
     }
 }
 
