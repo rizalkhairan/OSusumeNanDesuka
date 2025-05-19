@@ -16,6 +16,7 @@
         "span": "c",
         "kernel-entrypoint.h": "c",
         "string.h": "c",
-        "ext2.h": "c"
+        "ext2.h": "c",
+        "framebuffer.h": "c"
     },
 }

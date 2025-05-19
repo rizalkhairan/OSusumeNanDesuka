@@ -991,27 +991,28 @@ bool find_directory_entry(struct EXT2DriverRequest *request, struct EXT2Inode *p
     memset(indirect_pointers[0].buf, 0x0, 3 * BLOCK_SIZE);
     read_blocks(directory_entries[0].buf, current_loaded_block, 1);
     struct EXT2DirectoryEntry *entry = get_directory_entry(&directory_entries[0], 0);
-    uint8_t offset = 0;
+    uint16_t offset = 0;
     uint16_t current_entry_len;
 
     for (;;) {  // Iterate linked list of entries
-        offset += entry->rec_len;
-        while (offset > BLOCK_SIZE) {
-            // Load new block
-            offset -=  BLOCK_SIZE;
-            current_loaded_block = load_inode_next_block(parent_inode, directory_entries[0].buf, block_count, indirect_pointers);
-            block_count++;
-            if (current_loaded_block==0) return false; // Points into an entry but run out of blocks
-        }
         entry = (struct EXT2DirectoryEntry *)(directory_entries[0].buf + offset);
         
         if (correct_request_entry(entry, request)) {
             memcpy(result, entry, sizeof(struct EXT2DirectoryEntry));
             return true;
         }
-
+        
         if (entry->rec_len == 0) {
             return false;
+        }
+        
+        offset += entry->rec_len;
+        while (offset > BLOCK_SIZE) {
+            // Load new block(s)
+            offset -=  BLOCK_SIZE;
+            current_loaded_block = load_inode_next_block(parent_inode, directory_entries[0].buf, block_count, indirect_pointers);
+            block_count++;
+            if (current_loaded_block==0) return false; // Points into an entry but run out of blocks
         }
     }
 
@@ -1164,3 +1165,148 @@ void update_bgdt(void){
         }
     }
 }
+
+/*
+0: Exists
+1: Exists file
+2: Not found
+3: Parent invalid
+-1: Unknown error
+ */
+int8_t exist_ext2(uint32_t parent_inode, const char *path, uint32_t *res_inode) {
+    char temp_path[256];
+    size_t len = 0;
+    while (path[len] != '\0') len++;
+
+    if (len >= sizeof(temp_path)) return -1; // too long
+    memcpy(temp_path, path, len); // no null terminator needed
+
+    size_t i = 0;
+
+    while (i < len) {
+        char token[64];
+        for (int i=0; i < 64; i++){
+            token[i] = 0;
+        }
+        size_t j = 0;
+
+        while (i < len && temp_path[i] == '/') i++; // skip slashes
+
+        while (i < len && temp_path[i] != '/' && j < sizeof(token)) {
+            token[j++] = temp_path[i++];
+        }
+
+        if (j == 0) continue; 
+
+        size_t k = i;
+        while (k < len && temp_path[k] == '/') k++;
+
+        bool is_last = (k >= len);
+
+        struct EXT2DriverRequest req = {
+            .parent_inode = parent_inode,
+            .name = token,
+            .name_len = j,
+            .buf = NULL,
+            .buffer_size = 0,
+            .is_directory = true
+        };
+
+        struct EXT2Inode parent_inode_st;
+        read_inode(parent_inode, &parent_inode_st);
+
+        struct EXT2DirectoryEntry entry;
+        bool found = find_directory_entry(&req, &parent_inode_st, &entry);
+
+        if (!found && is_last){
+            req.is_directory = false;
+            found = find_directory_entry(&req, &parent_inode_st, &entry);
+            if (!found) return 2; // file not found
+        } else if (!found) {
+            return 2; // folder not found
+        }
+
+        struct EXT2Inode child_inode;
+        read_inode(entry.inode, &child_inode);
+        uint16_t mode = child_inode.i_mode & 0xF000;
+
+        // If this is the final component
+        if (is_last) {
+            if (res_inode) *res_inode = entry.inode;
+            if (mode == 0x4000) return 0; // directory
+            else if (mode == 0x8000) return 1; // file
+            else return -1;
+        }
+
+        // Otherwise must be a directory to continue
+        if (mode != 0x4000) return 3;
+        parent_inode = entry.inode;
+    }
+
+    return -1; 
+}
+// uint8_t get_full_path_string(uint32_t cur_inode, char* res) {
+//     char temp_buf[1024] = {0};  // Reverse path builder
+//     int offset = 0;
+//     char name_buf[256];
+
+//     while (cur_inode != 2) {
+//         struct EXT2Inode cur_inode_st;
+//         read_inode(cur_inode, &cur_inode_st);
+
+//         uint8_t cur_buf[BLOCK_SIZE * 16];
+//         load_inode_data(&cur_inode_st, cur_buf, sizeof(cur_buf));
+
+//         struct EXT2DirectoryEntry* entry = get_directory_entry(cur_buf, 0);
+//         if (!entry) return 1;
+
+//         entry = get_next_directory_entry(entry);  // '..'
+//         if (!entry) return 1;
+
+//         uint32_t parent_inode = entry->inode;
+
+//         struct EXT2Inode parent_inode_st;
+//         read_inode(parent_inode, &parent_inode_st);
+
+//         uint8_t parent_buf[BLOCK_SIZE * 16];
+//         load_inode_data(&parent_inode_st, parent_buf, sizeof(parent_buf));
+
+//         struct EXT2DirectoryEntry* it_entry = get_directory_entry(parent_buf, 0);
+//         int found = 0;
+
+//         while (it_entry) {
+//             if (it_entry->inode == cur_inode) {
+//                 uint32_t name_len = it_entry->name_len;
+//                 if (name_len >= sizeof(name_buf)) name_len = sizeof(name_buf) - 1;
+//                 memcpy(name_buf, get_entry_name(it_entry), name_len);
+//                 name_buf[name_len] = '\0';
+//                 found = 1;
+//                 break;
+//             }
+//             it_entry = get_next_directory_entry(it_entry);
+//         }
+
+//         if (!found) return 2;
+
+//         // Prepend to path
+//         int len = 0;
+//         while (name_buf[len] != '\0') len++;
+//         if (offset + len + 1 >= sizeof(temp_buf)) return 3;
+
+//         memmove(temp_buf + len + 1, temp_buf, offset);
+//         temp_buf[0] = '/';
+//         memcpy(temp_buf + 1, name_buf, len);
+//         offset += len + 1;
+
+//         cur_inode = parent_inode;
+//     }
+
+//     // Final path: "./" + temp_buf
+//     memcpy(res, "./", 2);
+//     memcpy(res + 2, temp_buf, offset);
+//     res[offset + 2] = '\0';
+
+//     return 0;
+// }
+
+

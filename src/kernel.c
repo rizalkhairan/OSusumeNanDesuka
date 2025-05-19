@@ -38,6 +38,37 @@ void kernel_setup(void) {
     };
     read(request);
 
+
+    struct EXT2DriverRequest req = {
+        .name = "kusanagi",
+        .name_len = 8,
+        .parent_inode = 2,
+        .buffer_size = 8,
+        .is_directory = true,
+        .buf = {0},
+    };    
+    uint32_t x = write(&req);
+
+    struct EXT2DriverRequest req2 = {
+        .name = "yoisaki",
+        .name_len = 7,
+        .parent_inode = 4,
+        .buffer_size = 8,
+        .is_directory = true,
+        .buf = {0},
+    };
+    uint32_t y = write(&req2);
+
+    struct EXT2DriverRequest req3 = {
+        .name = "shinonome",
+        .name_len = 9,
+        .parent_inode = 2,
+        .buffer_size = 8,
+        .is_directory = true,
+        .buf = {0},
+    };
+    uint32_t z = write(&req3);
+
     set_tss_kernel_current_stack();
     kernel_execute_user_program((uint8_t*) 0);
     while (true);

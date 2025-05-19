@@ -541,4 +541,8 @@ bool correct_request_entry(struct EXT2DirectoryEntry *entry, struct EXT2DriverRe
 bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 
 void update_bgdt(void);
+
+int8_t exist_ext2(uint32_t base_inode, const char *path, uint32_t *res_inode);
+
+uint8_t get_full_path_string(uint32_t cur_inode, char* res);
 #endif

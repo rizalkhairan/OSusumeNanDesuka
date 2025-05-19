@@ -54,8 +54,22 @@ typedef struct{
     int max_args;
 } Command;
 
-ParsedInput parse_input_all(const char *input, uint32_t length);
+typedef struct {
+    uint32_t base_inode;
+    char *path;
+    uint32_t *res_inode;
+} existEXT2Arg;
+
+typedef struct{
+    char name[255];
+    uint32_t length;
+    uint32_t inode_num;
+} Path;
+
+ParsedInput parse_input_all(const char *input, uint32_t length, char delimiter);
 ParsedInput parse_input_n(const char *input, uint32_t length, int n);
 void execute(const char* line, uint32_t length);
+void split_path(const char *path, char *parent_out, char *leaf_out);
 
+uint32_t get_absolute_path_length();
 #endif;

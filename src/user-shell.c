@@ -6,14 +6,17 @@
 
 #define BLOCK_COUNT 16
 
+Path absolute_path[8] = {0};
+uint8_t depth = 0;
+char fullpath[2040];
+uint32_t fullpath_length = 1;
+
 uint32_t cwd_inode = 2;
 char cwd_name[255];
 uint16_t cwd_name_len;
-
 uint32_t filepath_len = 23;
 static TerminalBuffer terminal_buffer;
 
-// need this? or rely the parsing on each function?
 Command command_table[] = {
     { "clear",  5, 0, 0},
     { "cd",     2, 0, 1},
@@ -27,16 +30,45 @@ Command command_table[] = {
 };
 #define NUM_COMMANDS (sizeof(command_table)/sizeof(Command))
 
+void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx) {
+    __asm__ volatile("mov %0, %%ebx" : /* <Empty> */ : "r"(ebx));
+    __asm__ volatile("mov %0, %%ecx" : /* <Empty> */ : "r"(ecx));
+    __asm__ volatile("mov %0, %%edx" : /* <Empty> */ : "r"(edx));
+    __asm__ volatile("mov %0, %%eax" : /* <Empty> */ : "r"(eax));
+    // Note : gcc usually use %eax as intermediate register,
+    //        so it need to be the last one to mov
+    __asm__ volatile("int $0x30");
+}
+
+int main(void) {
+    memcpy(absolute_path[0].name, ".", 1);
+    absolute_path[0].length = 1;
+    absolute_path[0].inode_num = 2;
+    cwd_name[0] = '.';
+    cwd_name_len = 1;
+
+    terminal_initialize();
+    syscall(7, 0, 0, 0);
+    // execute("cd kusanagi", 11);
+    // execute("cd ../shinonome", 15);
+    while(true){
+        char c;
+        syscall(4, &c, 0, 0);
+        if(c){
+            terminal_handle_input(c);
+        }
+    }
+
+    return 0;
+}
+
+// --------------- CLI ---------------
+
 void terminal_initialize(){
     syscall(8, 0, 0, 0);
 
-    // Beginning prints
-    // 1. facts
-    // 2. current file path
-    // From 1 and 2, we will determine the beginning cursor position
-
     char* filepath = "OSusumeWaNanDesuka?:.$ ";
-    syscall(6, filepath, filepath_len, 0xA);
+    syscall(6, filepath, filepath_len, 0x9);
 
     // Set cursor correct position
     terminal_buffer.hist_length = 0;
@@ -54,19 +86,25 @@ void terminal_initialize(){
 }
 
 void write_path(){
-    char* filepath = "OSusumeWaNanDesuka?:.$ ";
+    char result[2040+filepath_len];
+    char* filepath = "OSusumeWaNanDesuka?:";
     TerminalLine* line = &terminal_buffer.history[terminal_buffer.current_line];
+    get_absolute_path();
+    fullpath_length = get_absolute_path_length();
+    
+    memcpy(result, filepath, 20);
+    memcpy(result + 20, fullpath, fullpath_length);
+    memcpy(result + 20 + fullpath_length, "$ ", 2);
 
     terminal_buffer.current_line_col = 0;
     terminal_buffer.current_line_row += (line->length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-    syscall(6, filepath, filepath_len, 0xA);
-    terminal_buffer.current_line_col = filepath_len;
+    syscall(6, result, 22 + fullpath_length, 0x9);
+    terminal_buffer.current_line_col = 22 + fullpath_length;
    
     terminal_buffer.cursor_row = terminal_buffer.current_line_row;
     terminal_buffer.cursor_col = terminal_buffer.current_line_col;
     syscall(9, terminal_buffer.cursor_row, terminal_buffer.cursor_col, 0);
-
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
 }
 
@@ -198,10 +236,8 @@ void terminal_handle_input(char c){
             }
             break;
     }
-    // syscall(9, terminal_buffer.cursor_row, terminal_buffer.cursor_col, 0);
-    // syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+    
     redraw_current_line();
-    // syscall(6, line, cursor_index, 0x3);
 }
 
 void add_line_to_history(){
@@ -273,42 +309,15 @@ void terminal_line_delete_char(TerminalLine* line, int index) {
     line->length--;
 }
 
-void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx) {
-    __asm__ volatile("mov %0, %%ebx" : /* <Empty> */ : "r"(ebx));
-    __asm__ volatile("mov %0, %%ecx" : /* <Empty> */ : "r"(ecx));
-    __asm__ volatile("mov %0, %%edx" : /* <Empty> */ : "r"(edx));
-    __asm__ volatile("mov %0, %%eax" : /* <Empty> */ : "r"(eax));
-    // Note : gcc usually use %eax as intermediate register,
-    //        so it need to be the last one to mov
-    __asm__ volatile("int $0x30");
-}
-
-int main(void) {
-    cwd_name[0] = '.';
-    cwd_name_len = 1;
-
-    terminal_initialize();
-    syscall(7, 0, 0, 0);
-    while(true){
-        char c;
-        syscall(4, &c, 0, 0);
-        if(c){
-            terminal_handle_input(c);
-        }
-    }
-
-    return 0;
-}
-
 // --------------- utilities ---------------
-ParsedInput parse_input_all(const char* input, uint32_t length){
+ParsedInput parse_input_all(const char* input, uint32_t length, char delimiter){
     bool isKutip = false;
     ParsedInput res = {0};
 
     uint32_t i = 0;
     while(i<length && res.argc < MAX_ARGC){
         // skip leading spaces
-        while(i<length && input[i]==' '){
+        while(i<length && input[i]== delimiter){
             i++;
         }
         // all input has been read
@@ -325,7 +334,7 @@ ParsedInput parse_input_all(const char* input, uint32_t length){
             isKutip = false;
 
         } else{
-            while(i<length && input[i]!= ' '){
+            while(i<length && input[i]!= delimiter){
                 i++;
             }
         }
@@ -388,12 +397,69 @@ ParsedInput parse_input_n(const char *input, uint32_t length, int n){
             word_len = MAX_ARG_LEN -1;
         }
 
-        Arg* arg = &res.argv[res.argc];
-        memcpy(arg->buffer, &input[start], word_len);
-        arg->length = word_len;
+        memcpy(res.argv[res.argc].buffer, &input[start], word_len);
+        res.argv[res.argc].length = word_len;
         res.argc++;
     }
     return res;
+}
+
+struct EXT2DirectoryEntry *get_next_directory_entry_shell(struct EXT2DirectoryEntry *entry){
+    struct EXT2DirectoryEntry* next = (struct EXT2DirectoryEntry*)((uint8_t*)entry + entry->rec_len);
+    return next;
+}
+
+char *get_entry_name_shell(void *entry){
+    struct EXT2DirectoryEntry *dir_entry = (struct EXT2DirectoryEntry *)entry;
+    if(dir_entry->inode==0 || dir_entry->name_len == 0 || dir_entry->name_len > 255){
+        return NULL;
+    } else{
+        char* name = (char*)(entry + sizeof(struct EXT2DirectoryEntry));
+        return name;
+    }
+}
+
+void get_absolute_path(){
+    // char fullpath[2040];
+    uint32_t offset = 0;
+    for(uint8_t i=0;i<=depth;i++){
+        if(i>0){
+            memcpy((char*)((uint8_t*)fullpath + offset), "/", 1);
+            offset++;
+        }
+        memcpy((char*)((uint8_t*)fullpath + offset), absolute_path[i].name, absolute_path[i].length);
+        offset += absolute_path[i].length;
+    }
+    // return &fullpath;
+}
+
+uint32_t get_absolute_path_length(){
+    uint32_t res = 0;
+    for(uint8_t i=0;i<=depth;i++){
+        if(i>0){
+            res++; // hitung '/'
+        }
+        res+= absolute_path[i].length;
+    }
+    return res;
+}
+
+void updateAbsolutePath(){
+    for(uint8_t i=1;i<=depth;i++){
+        char buffer2[BLOCK_COUNT*BLOCK_SIZE];
+        struct EXT2DriverRequest req = {
+            .buf                   = buffer2,
+            .name                  = absolute_path[i].name,
+            .parent_inode          = absolute_path[i-1].inode_num,
+            .buffer_size           = 0x100000,
+            .name_len              = absolute_path[i].length,
+            .is_directory          = 1
+        };
+        struct EXT2DirectoryEntry new;
+        uint32_t retval = 0;
+        syscall(12, &req, &new, &retval);
+        absolute_path[i].inode_num = new.inode;
+    }
 }
 
 void execute(const char* input, uint32_t length){
@@ -402,33 +468,27 @@ void execute(const char* input, uint32_t length){
         terminal_buffer.current_line_col = 0;
         terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, "command not found", 17, 0x2);
+        syscall(6, "welp", 4, 0x4);
         return;
     }
-    
+
     uint8_t i=0;
     for(i=0;i<NUM_COMMANDS;i++){
-        if(memcmp(command_table->name, args.argv[0].buffer, args.argv[0].length)==0){
+        if(memcmp(command_table[i].name, args.argv[0].buffer, args.argv[0].length)==0){
             break;
         }
     }
     if(i<NUM_COMMANDS){
         if(i==0){clear(args.argv[1].buffer, args.argv[1].length);}
-        
+        else if(i==1){cd(args.argv[1].buffer, args.argv[1].length);}
     } else{
         terminal_buffer.current_line_col = 0;
         terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, args.argv[1].buffer, args.argv[1].length, 0xE);
+        syscall(6, "command not found", 17, 0x4);
     }
-
-    // if(memcmp("ikanaide", args.argv[0].buffer, args.argv[0].length)==0){
-    //     terminal_buffer.current_line_col = 0;
-    //     terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
-    //     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-    //     syscall(6, args.argv[1].buffer, args.argv[1].length, 0xE);
-    // }
 }
+
 
 // --------------- commands ---------------
 void clear(const char* input, uint32_t length){
@@ -436,7 +496,7 @@ void clear(const char* input, uint32_t length){
         terminal_buffer.current_line_col = 0;
         terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, "command not found", 17, 0x3);
+        syscall(6, "invalid arg", 11, 0x4);
         return;
     }
     terminal_buffer.current_line_col = 0;
@@ -450,7 +510,62 @@ void cd(const char* input, uint32_t length){
         cwd_name[0] = '.';
         cwd_name_len = 1;
         cwd_inode = 2;
+        depth = 0;
         return;
     }
-    return;
+    ParsedInput args = parse_input_all(input, length, ' ');
+    if(args.argc!=1){
+        return; // error message?
+    }
+
+    uint32_t res;
+    existEXT2Arg input_param = {
+        .base_inode = cwd_inode,
+        .path = args.argv[0].buffer,
+        .res_inode = &res,
+    };
+    uint8_t retval = 2;
+    syscall(13, &input_param, &retval, 0);
+
+    if(retval!=0){
+        terminal_buffer.current_line_col = 0;
+        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "invalid arg2", 12, 0x5);
+    } else{
+        // parsing sukses
+        ParsedInput path = parse_input_all(args.argv[0].buffer, args.argv[0].length, '/');
+
+        for(uint32_t i=0;i<path.argc;i++){
+            if(depth>=8){
+                break;
+            }
+            char dotdot[2];
+            dotdot[0] ='.';
+            dotdot[1] ='.';
+            if(path.argv[i].length==1 && memcmp(path.argv[i].buffer, ".", path.argv[i].length)==0){} // nothing happened
+            else if(path.argv[i].length==2 && (memcmp(path.argv[i].buffer, dotdot, path.argv[i].length)==0)){
+                if(depth!=0){
+                    depth--;
+                }
+            } else{
+                depth++;
+                memcpy(absolute_path[depth].name, path.argv[i].buffer, path.argv[i].length);
+                absolute_path[depth].length = path.argv[i].length;
+            }
+        }
+
+        cwd_inode = res;
+        cwd_name_len = absolute_path[depth].length;
+        memcpy(cwd_name, absolute_path[depth].name, absolute_path[depth].length);
+    }
+    
+    // Path* new_path = absolute_path;
+    get_absolute_path();
+    fullpath_length = get_absolute_path_length();
+
+    // terminal_buffer.current_line_col = 0;
+    // terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+    // syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+    // syscall(6, cwd_name, cwd_name_len, 0xD);
 }
