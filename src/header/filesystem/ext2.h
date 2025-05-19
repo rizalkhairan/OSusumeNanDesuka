@@ -538,6 +538,22 @@ int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct E
  */
 bool correct_request_entry(struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 
+/**
+ * @brief attempt to delete directory entry from a parent directory by leaving gaps in the directory entries
+ * @param delete_request request containing the parent inode to be searched on
+ * @param deleted_inode_number inode number of the deleted directory entry if succesfully deleted
+ * @return 0: success, 1: not found, -1: unknown error
+ */
+int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct EXT2Inode* parent, uint32_t* deleted_inode_number);
+
+/**
+ * @brief check whether the entry is equal to the request
+ * @param entry the directory entry
+ * @param request the request
+ * @return true if equal, false otherwise
+ */
+bool correct_request_entry(struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
+
 bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 
 void update_bgdt(void);

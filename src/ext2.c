@@ -1382,6 +1382,85 @@ int8_t move_mv(struct EXT2CopyRequest* copy_request){
     }
 }
 
+int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct EXT2Inode* parent_inode, uint32_t* deleted_inode_number) {
+    struct BlockBuffer directory_entries[1];
+    struct BlockBuffer indirect_pointers[3];
+    uint32_t prev_loaded_block = parent_inode->i_block[0];      // Guaranteed to be not empty (first two entries)
+    uint32_t current_loaded_block = parent_inode->i_block[0];
+    uint32_t block_count = 0;
+    memset(directory_entries[0].buf, 0x0, BLOCK_SIZE);
+    memset(indirect_pointers[0].buf, 0x0, 3 * BLOCK_SIZE);
+    read_blocks(&directory_entries[0], current_loaded_block, 1);
+    struct EXT2DirectoryEntry *prev_entry = get_directory_entry(&directory_entries[0], 0);
+    struct EXT2DirectoryEntry *entry = get_next_directory_entry(prev_entry);
+    uint8_t offset = prev_entry->rec_len;   // Current entry offset in block
+
+    for (;;) {  // Iterate linked list of entries
+        for (;;) {  // Check entries of the current blocks
+            if (offset + entry->rec_len > BLOCK_SIZE) {
+                offset = offset + entry->rec_len - BLOCK_SIZE;
+                break;
+            }
+
+            if (correct_request_entry(entry, delete_request)) {
+                if (entry->file_type == EXT2_FT_DIR && !is_directory_empty(entry->inode)) {
+                    return 2;   // Unable to delete non-empty directory
+                }
+                *deleted_inode_number = entry->inode;
+                entry->inode = 0;   // For safe measure
+                write_blocks(&directory_entries[0], current_loaded_block, 1);
+                read_blocks(&directory_entries[0], prev_loaded_block, 1);
+                prev_entry->rec_len += entry->rec_len;  // Point to the same offset in the stack as was previously loaded
+                write_blocks(&directory_entries[0], prev_loaded_block, 1);
+                return 0;
+            }
+            if (entry->rec_len==0) {
+                return 1;
+            }
+            prev_loaded_block = current_loaded_block;
+            prev_entry = entry;
+            entry = get_next_directory_entry(entry);
+            offset += prev_entry->rec_len;
+        }
+
+        prev_loaded_block = current_loaded_block;
+        current_loaded_block = load_inode_next_block(parent_inode, directory_entries[0].buf, block_count, &indirect_pointers[0]);
+        block_count++;
+        if (current_loaded_block==0) {
+            return 1;
+        }
+        prev_entry = entry;
+        entry = (struct EXT2DirectoryEntry *)(directory_entries[0].buf + offset);
+        offset = 0;
+    }
+    return -1;
+}
+
+bool correct_request_entry(struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request) {
+    if (entry->inode == 0) {
+        return false;
+    }
+    if (entry->name_len != request->name_len) {
+        return false;
+    }
+    if (memcmp(get_entry_name(entry), request->name, request->name_len) != 0) {
+        return false;
+    }
+    if (request->is_directory && (entry->file_type != EXT2_FT_DIR)) {
+        return false;
+    }
+    if (!request->is_directory && (entry->file_type == EXT2_FT_DIR)) {
+        return false;
+    }
+    return true;
+}
+
+bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request) {
+    struct BlockBuffer block;
+    read_blocks(&block, block_number, 1);
+    uint32_t offset = 0;
+    bool found = false;
+
 /*
 0: Success
 1: Failed
