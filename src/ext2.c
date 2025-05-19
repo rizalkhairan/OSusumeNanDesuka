@@ -420,7 +420,7 @@ uint32_t allocate_node(void){
             group = inode_to_bgd(inode_number);
             read_blocks(bitmap.buf, bgdt.table[group].bg_inode_bitmap, 1);
         }
-        
+
         if (bgdt.table[group].bg_free_inodes_count == 0) continue;
         
         if (!is_bitmap_set(&bitmap, inode_to_local(inode_number))) {
@@ -1030,13 +1030,13 @@ bool find_directory_entry(struct EXT2DriverRequest *request, struct EXT2Inode *p
     memset(indirect_pointers[0].buf, 0x0, 3 * BLOCK_SIZE);
     read_blocks(directory_entries[0].buf, current_loaded_block, 1);
     struct EXT2DirectoryEntry *entry = get_directory_entry(&directory_entries[0], 0);
-    uint8_t offset = 0;
+    uint16_t offset = 0;
     uint16_t current_entry_len;
 
     for (;;) {  // Iterate linked list of entries
         offset += entry->rec_len;
         while (offset > BLOCK_SIZE) {
-            // Load new block
+            // Load new block(s)
             offset -=  BLOCK_SIZE;
             current_loaded_block = load_inode_next_block(parent_inode, directory_entries[0].buf, block_count, indirect_pointers);
             block_count++;
@@ -1074,7 +1074,7 @@ int8_t add_directory_entry(struct EXT2DriverRequest *request, struct EXT2Directo
     for (;;) {  // Iterate linked list of entries
         offset += entry->rec_len;
         while (offset >= BLOCK_SIZE) {
-            // Load new block
+            // Load new block (s)
             offset -=  BLOCK_SIZE;
             current_loaded_block = load_inode_next_block(parent_inode, directory_entries[0].buf, block_count, indirect_pointers);
             block_count++;
@@ -1130,12 +1130,12 @@ int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct E
     read_blocks(&directory_entries[0], current_loaded_block, 1);
     struct EXT2DirectoryEntry *prev_entry = get_directory_entry(&directory_entries[0], 0);
     struct EXT2DirectoryEntry *entry = get_next_directory_entry(prev_entry);
-    uint8_t offset = prev_entry->rec_len;   // Current entry offset in block
+    uint16_t offset = prev_entry->rec_len;   // Current entry offset in block
 
     for (;;) {  // Iterate linked list of entries
         for (;;) {  // Check entries of the current blocks
             if (offset + entry->rec_len > BLOCK_SIZE) {
-                offset = offset + entry->rec_len - BLOCK_SIZE;
+                offset = offset + entry->rec_len;
                 break;
             }
 
@@ -1165,8 +1165,11 @@ int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct E
         }
 
         prev_loaded_block = current_loaded_block;
-        current_loaded_block = load_inode_next_block(parent_inode, directory_entries[0].buf, block_count, &indirect_pointers[0]);
-        block_count++;
+        while (offset > BLOCK_SIZE) {
+            offset -= BLOCK_SIZE;
+            current_loaded_block = load_inode_next_block(parent_inode, directory_entries[0].buf, block_count, &indirect_pointers[0]);
+            block_count++;
+        }
         if (current_loaded_block==0) {
             return 1;
         }
