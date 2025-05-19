@@ -1034,6 +1034,17 @@ bool find_directory_entry(struct EXT2DriverRequest *request, struct EXT2Inode *p
     uint16_t current_entry_len;
 
     for (;;) {  // Iterate linked list of entries
+        entry = (struct EXT2DirectoryEntry *)(directory_entries[0].buf + offset);
+        
+        if (correct_request_entry(entry, request)) {
+            memcpy(result, entry, sizeof(struct EXT2DirectoryEntry));
+            return true;
+        }
+        
+        if (entry->rec_len == 0) {
+            return false;
+        }
+        
         offset += entry->rec_len;
         while (offset > BLOCK_SIZE) {
             // Load new block(s)
@@ -1041,16 +1052,6 @@ bool find_directory_entry(struct EXT2DriverRequest *request, struct EXT2Inode *p
             current_loaded_block = load_inode_next_block(parent_inode, directory_entries[0].buf, block_count, indirect_pointers);
             block_count++;
             if (current_loaded_block==0) return false; // Points into an entry but run out of blocks
-        }
-        entry = (struct EXT2DirectoryEntry *)(directory_entries[0].buf + offset);
-        
-        if (correct_request_entry(entry, request)) {
-            memcpy(result, entry, sizeof(struct EXT2DirectoryEntry));
-            return true;
-        }
-
-        if (entry->rec_len == 0) {
-            return false;
         }
     }
 
