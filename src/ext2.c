@@ -1044,9 +1044,9 @@ bool find_directory_entry(struct EXT2DriverRequest *request, struct EXT2Inode *p
         if (entry->rec_len == 0) {
             return false;
         }
-        
+
         offset += entry->rec_len;
-        while (offset > BLOCK_SIZE) {
+        while (offset >= BLOCK_SIZE) {
             // Load new block(s)
             offset -=  BLOCK_SIZE;
             current_loaded_block = load_inode_next_block(parent_inode, directory_entries[0].buf, block_count, indirect_pointers);
@@ -1135,7 +1135,7 @@ int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct E
 
     for (;;) {  // Iterate linked list of entries
         for (;;) {  // Check entries of the current blocks
-            if (offset + entry->rec_len > BLOCK_SIZE) {
+            if (offset + entry->rec_len >= BLOCK_SIZE) {
                 offset = offset + entry->rec_len;
                 break;
             }
@@ -1166,7 +1166,7 @@ int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct E
         }
 
         prev_loaded_block = current_loaded_block;
-        while (offset > BLOCK_SIZE) {
+        while (offset >= BLOCK_SIZE) {
             offset -= BLOCK_SIZE;
             current_loaded_block = load_inode_next_block(parent_inode, directory_entries[0].buf, block_count, &indirect_pointers[0]);
             block_count++;
