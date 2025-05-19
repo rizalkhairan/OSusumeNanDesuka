@@ -421,6 +421,8 @@ uint32_t allocate_node(void){
             read_blocks(bitmap.buf, bgdt.table[group].bg_inode_bitmap, 1);
         }
         
+        if (bgdt.table[group].bg_free_inodes_count == 0) continue;
+        
         if (!is_bitmap_set(&bitmap, inode_to_local(inode_number))) {
             return inode_number;
         }
@@ -802,6 +804,7 @@ bool is_bitmap_set(struct BlockBuffer *bitmap, uint32_t bit) {
 // Helper to find first free block in group
 uint32_t find_free_in_bgd(uint32_t bgd_index) {
     if (bgd_index >= GROUPS_COUNT) return 0;
+    if (bgdt.table[bgd_index].bg_free_blocks_count == 0) return 0;
     struct BlockBuffer bitmap;
     uint32_t bitmap_block = bgdt.table[bgd_index].bg_block_bitmap;
     
