@@ -621,7 +621,7 @@ uint32_t desq_queue_size(struct DirectoryEntrySearchQueue* queue) {
     return (DIRECTORY_ENTRY_SEARCH_QUEUE_SIZE + queue->tail - queue->head) % DIRECTORY_ENTRY_SEARCH_QUEUE_SIZE;
 }
 
-void find_recurse(char *path, uint32_t* path_len, char* cwd, uint32_t* cwd_len, uint32_t inode, char *target, uint32_t* target_len) {
+void find_recurse(char *path, uint32_t* path_len, uint32_t inode, char *target, uint32_t* target_len) {
     /* Directory reading */
     // Prepare this buffer to store directory entries
     // TO MY FUTURE SELF: how do you handle inode with more directory entries
@@ -630,83 +630,68 @@ void find_recurse(char *path, uint32_t* path_len, char* cwd, uint32_t* cwd_len, 
     // syscall(11, inode, &ENTRIES_BUFFER_SIZE, 0); // sort this out when metadata is ready
     uint8_t entries[ENTRIES_BUFFER_SIZE];
 
+    char dot = '.';
+
     struct EXT2DriverRequest request = {
-        .name = cwd,
-        .name_len = *cwd_len,
+        .name = &dot,
+        .name_len = 1,
         .parent_inode = inode,
         .buf = entries,
         .buffer_size = ENTRIES_BUFFER_SIZE,
         .is_directory = true,
     };
-    int8_t retval = -999;
+    int8_t retval;
     syscall(1, (uint32_t)&request, &retval, 0);
-    if (retval != 0) {
-        return;
-    }
+    if (retval != 0) return;
 
     struct DirectoryEntrySearchQueue queue;
     desq_create_queue(&queue);
 
     struct EXT2DirectoryEntry *entry = (struct EXT2DirectoryEntry *)entries;
+    entry = get_next_directory_entry_shell(entry);
     for (;;) {
-        if (entry->inode == 0) {
-            break;
-        }
-
+        if (entry->rec_len == 0) break;
+        
+        entry = get_next_directory_entry_shell(entry);
         char *name = (char *)((uint8_t *)entry + sizeof(struct EXT2DirectoryEntry));
-        if (memcmp(name, target, *target_len) == 0) {   // Found target
-            /*
-            
-            !!! puts path + '/' + this entry/target name
-            
-            */
+        if (memcmp(name, target, entry->name_len) == 0) {   // Found target
+           char result[MAX_NAME_LENGTH * MAX_PATH_DEPTH];
+           memcpy(result, path, *path_len);
+           result[*path_len] = '/';
+           memcpy(result + *path_len + 1, name, entry->name_len);
+           uint32_t length = *path_len + 1 + entry->name_len;
+           
+           terminal_buffer.current_line_col = 0;
+           terminal_buffer.current_line_row += (entry->name_len + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+           syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+           syscall(6, result, length, 0x2);
         }
-        char result[MAX_NAME_LENGTH * MAX_PATH_DEPTH];
-        memcpy(result, path, *path_len);
-        result[*path_len] = '/';
-        memcpy(result + *path_len + 1, name, entry->name_len);
-        
-        uint32_t length = *path_len + 1 + entry->name_len;
-        
         
         if (entry->file_type == EXT2_FT_DIR) {
             struct DirectoryEntrySearchQueueItem item = { .entry = entry };
             desq_enqueue(&queue, item);
         }
-        terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
-        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, result, length, 0x2);
-
-        entry = get_next_directory_entry_shell(entry);
     }
 
     struct DirectoryEntrySearchQueueItem item;
     struct EXT2DirectoryEntry *child_entry;
-    // while (desq_queue_size(&queue) > 0) {
-    //     desq_dequeue(&queue, &item);
-    //     child_entry = item.entry;
-    //     char *child_name = (char *)((uint8_t *)child_entry + sizeof(struct EXT2DirectoryEntry));
+    uint16_t current_path_len = *path_len;
+    while (desq_queue_size(&queue) > 0) {
+        desq_dequeue(&queue, &item);
+        child_entry = item.entry;
+        char *child_name = (char *)((uint8_t *)child_entry + sizeof(struct EXT2DirectoryEntry));
 
-    //     path[*path_len] = '/';
-    //     memcpy(path + *path_len + 1, child_name, child_entry->name_len);
-        
-    //     cwd = path + *path_len + 1;
-    //     *cwd_len = child_entry->name_len;
-        
-    //     *path_len += 1 + child_entry->name_len;
+        path[current_path_len] = '/';
+        memcpy(path + current_path_len + 1, child_name, child_entry->name_len);
+        *path_len = current_path_len + 1 + child_entry->name_len;
 
-    //     find_recurse(path, path_len, cwd, cwd_len, entry->inode, target, target_len);
-    // }
+        find_recurse(path, path_len, child_entry->inode, target, target_len);
+    }
 }
 
 void find(const char *input, uint32_t length) {
     ParsedInput args = parse_input_all(input, length, ' ');
-    /*
-    
-    !!! PArse input hereeee
 
-    */
     char target[MAX_NAME_LENGTH];
     uint32_t target_len;
 
@@ -720,28 +705,13 @@ void find(const char *input, uint32_t length) {
         argno++;
     }
 
-    // terminal_buffer.current_line_col = 0;
-    // terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
-    // syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-    // syscall(6,target, target_len, 0x2);
-
-    // terminal_buffer.current_line_col = 0;
-    // terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
-    // syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-    // syscall(6, "found: ", 7, 0x2);
-
-
     uint8_t MAX_NAME_LEN = 255;
     uint8_t MAX_PATH_PATH_LEN = MAX_NAME_LEN * 8;   // <- Assumption
     
     char path[MAX_PATH_PATH_LEN];
     uint32_t path_len = 1;
     path[0] = '.';
-
-    char *cwd = &path;
-    uint32_t cwd_len = 1;
-
+    
     uint32_t inode = 2; // Root inode
-
-    find_recurse(path, &path_len, cwd, &cwd_len, inode, target, &target_len);
+    find_recurse(path, &path_len, inode, target, &target_len);
 };

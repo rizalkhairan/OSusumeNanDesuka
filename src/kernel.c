@@ -69,6 +69,16 @@ void kernel_setup(void) {
     };
     uint32_t z = write(&req3);
 
+    struct EXT2DriverRequest req4 = {
+        .name = "yoisaki",
+        .name_len = 7,
+        .parent_inode = 2,
+        .buffer_size = 8,
+        .is_directory = true,
+        .buf = {0},
+    };
+    uint32_t w = write(&req4);
+
     set_tss_kernel_current_stack();
     kernel_execute_user_program((uint8_t*) 0);
     while (true);
