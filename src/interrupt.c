@@ -127,7 +127,7 @@ void syscall(struct InterruptFrame frame) {
                 ((uint32_t) frame.cpu.general.ebx), 
                 &new_inode_1
             );
-            *((int8_t*) frame.cpu.general.ecx) = new_inode_1.i_size;
+            *((int32_t*) frame.cpu.general.ecx) = new_inode_1.i_size;
             break;
         case 12:
             // find directory entry
@@ -148,7 +148,10 @@ void syscall(struct InterruptFrame frame) {
             *((int8_t*) frame.cpu.general.ecx) = exist_ext2(param->base_inode, param->path, param->res_inode);
             break;
         case 14:
-            // get_full_path_string(((struct EXT2DriverRequest*) frame.cpu.general.ebx), ((struct EXT2DriverRequest*) frame.cpu.general.ecx));
+            *((int8_t*) frame.cpu.general.ecx) = copy_cp((struct EXT2CopyRequest*) frame.cpu.general.ebx);
+            break;
+        case 15:
+            *((int8_t*) frame.cpu.general.ecx) = move_mv((struct EXT2CopyRequest*) frame.cpu.general.ebx);
             break;
     }
 }

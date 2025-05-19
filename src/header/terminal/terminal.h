@@ -27,13 +27,15 @@ typedef struct {
 static TerminalBuffer terminal_buffer;
 
 void terminal_initialize();
+void write_path();
+void redraw_current_line();
 void terminal_handle_input(char);
 void add_line_to_history();
 bool is_same_line(TerminalLine, TerminalLine);
 void terminal_line_insert_char(TerminalLine*, char, int);
 void terminal_line_delete_char(TerminalLine*, int);
 
-// --------------- utilities for parsing commands ---------------
+// --------------- utilities  ---------------
 #define MAX_ARGC 8
 #define MAX_ARG_LEN 255
 
@@ -50,8 +52,6 @@ typedef struct{
 typedef struct{
     const char* name;
     int length;
-    int min_args;
-    int max_args;
 } Command;
 
 typedef struct {
@@ -68,8 +68,22 @@ typedef struct{
 
 ParsedInput parse_input_all(const char *input, uint32_t length, char delimiter);
 ParsedInput parse_input_n(const char *input, uint32_t length, int n);
-void execute(const char* line, uint32_t length);
-void split_path(const char *path, char *parent_out, char *leaf_out);
 
+struct EXT2DirectoryEntry *get_next_directory_entry_shell(struct EXT2DirectoryEntry *entry);
+char *get_entry_name_shell(void *entry);
+void get_absolute_path();
 uint32_t get_absolute_path_length();
+void updateAbsolutePath();
+
+int8_t delete_recur_dir(uint32_t parent_inode, char* cur_dir_name);
+
+// --------------- commands ---------------
+void execute(const char* line, uint32_t length);
+void clear(const char* input, uint32_t length);
+void cd(const char* input, uint32_t length);
+void cat(const char* input, uint32_t length);
+void ls(const char* input, uint32_t length);
+void mkdir(const char* input, uint32_t length);
+void rm(const char* input, uint32_t length);
+
 #endif;
