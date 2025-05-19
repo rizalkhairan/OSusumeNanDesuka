@@ -781,9 +781,6 @@ void find(const char *input, uint32_t length) {
     uint32_t inode = 2; // Root inode
     find_recurse(path, &path_len, inode, target, &target_len);
 };
-    terminal_buffer.current_line_row += (retval + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
-    syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-}
 
 void ls(const char* input, uint32_t length) {
     if(length!=0){
