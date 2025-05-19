@@ -69,7 +69,7 @@ void kernel_setup(void) {
     };
     uint32_t z = write(&req3);
 
-    struct EXT2DriverRequest req4 = {
+    struct EXT2DriverRequest reqnew = {
         .name = "yoisaki",
         .name_len = 7,
         .parent_inode = 2,
@@ -77,7 +77,59 @@ void kernel_setup(void) {
         .is_directory = true,
         .buf = {0},
     };
-    uint32_t w = write(&req4);
+    uint32_t w = write(&reqnew);
+
+  char nijiiro[430] = "mawaru machikado yukikau hitobito hitori ni hitotsu kakegae no nai story kitto watashi mo sonna fuu ni naritakatta ougon no tsuki yorisou hoshi mo asatsuyu ni nureta hana mo todokanai to okubyou na kokoro ni kagi wo kaketa utsumuku namida ochite hajiketa chiisana niji utsushita kuraun hiroiageru te hitori ja nakatta tonari de utau koe kowagari na senaka wo oshite tojikometa hazu no kokoro ni tsubasa yadosu mahou wo kureta kara";
+    struct BlockBuffer file = {0};
+    memcpy(file.buf, nijiiro, 430);
+    struct EXT2DriverRequest req4 = {
+        .name = "nijiiro",
+        .name_len = 7,
+        .parent_inode = 4,
+        .buffer_size = 430,
+        .is_directory = false,
+        .buf = file.buf,
+    };
+    uint32_t a = write(&req4);
+
+    char samsa[482] = "tsukaifurushita jibun no namae ni aete kicchu na rubi wo futte kouketsu wo uchi makaseru kurai ni osoroshiku naru hone no zui made ima wa donna fuu ni mietemasu ka? minikui desu ka? sore wa sokka douka ringo wo nagetsukenaide mune ni Lock up Lock up zamuza kagami wo goran dareka ga sasayaku umaku ittara moukemono sa amai kotoba mo egao mo tsuujinai hashiridashitara mou kemono da tsuki no mashita wo urotsuki nagara kangaeteta yosugara akumu ni dono yubi tatete yarubeki ka tte ne";
+    struct BlockBuffer file2 = {0};
+    memcpy(file2.buf, samsa, 482);
+    struct EXT2DriverRequest req5 = {
+        .name = "samsa",
+        .name_len = 5,
+        .parent_inode = 5,
+        .buffer_size = 482,
+        .is_directory = false,
+        .buf = file2.buf,
+    };
+    uint32_t b = write(&req5);
+
+    char watashiwaame[507] = "watashi wa dare anata no aware yozora no naka de namae wo nakushite uneri no nai minamo ni hisomu keshiki wo shiranai mama (kiri ni natte shimatte mo) tadayou kumo (betsuni ii no ni) kinou made wa (kamawanai no ni) tadayou kumo watashi wa naze massugu ni ochirudareka no tenohira wo sagasu tame sora wo dekiru kagiri me ni osamenagara watashi wa ame (ame ame ame) hajikarete wakaru dareka (dare dare) no you ni wa narenai ame (ame ame ame) chikyuu wo komaraseru hodo no itami wo shiranai kara watashi wa ame";
+    struct BlockBuffer file3 = {0};
+    memcpy(file3.buf, watashiwaame, 507);
+    struct EXT2DriverRequest req6 = {
+        .name = "watashiwaame",
+        .name_len = 12,
+        .parent_inode = 6,
+        .buffer_size = 507,
+        .is_directory = false,
+        .buf = file3.buf,
+    };
+    uint32_t c = write(&req6);
+
+    char abcd[20] = "ini ceritanya file 1";
+    struct BlockBuffer file4 = {0};
+    memcpy(file4.buf, abcd, 20);
+    struct EXT2DriverRequest req7 = {
+        .name = "file1",
+        .name_len = 5,
+        .parent_inode = 2,
+        .buffer_size = 20,
+        .is_directory = false,
+        .buf = file4.buf,
+    };
+    uint32_t d = write(&req7);
 
     set_tss_kernel_current_stack();
     kernel_execute_user_program((uint8_t*) 0);
