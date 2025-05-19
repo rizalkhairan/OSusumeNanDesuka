@@ -29,6 +29,9 @@ extern struct EXT2BlockGroupDescriptorTable bgdt;
 #define TRIPLY_INDIRECT_BLOCK_COUNT (SINGLY_INDIRECT_BLOCK_COUNT * SINGLY_INDIRECT_BLOCK_COUNT * SINGLY_INDIRECT_BLOCK_COUNT)
 
 
+#define MAX_NAME_LENGTH 255u
+
+
 /**
  * inodes constant 
  * - reference: https://www.nongnu.org/ext2-doc/ext2.html#inode-table

@@ -308,6 +308,11 @@ int8_t write(struct EXT2DriverRequest *request){
     if (request == NULL || ((request->buf == NULL || request->buffer_size == 0) && request->is_directory == false))
     return -1;
 
+    // Max filename length
+    if (request->name_len > MAX_NAME_LENGTH || request->name_len == 0) {
+        return -1;
+    }
+
     // Validate parent inode
     struct EXT2Inode parent_inode;
     read_inode(request->parent_inode, &parent_inode);
