@@ -631,7 +631,6 @@ void find_recurse(char *path, uint32_t* path_len, uint32_t inode, char *target, 
     uint8_t entries[ENTRIES_BUFFER_SIZE];
 
     char dot = '.';
-
     struct EXT2DriverRequest request = {
         .name = &dot,
         .name_len = 1,
@@ -692,16 +691,14 @@ void find_recurse(char *path, uint32_t* path_len, uint32_t inode, char *target, 
 void find(const char *input, uint32_t length) {
     ParsedInput args = parse_input_all(input, length, ' ');
 
-    char target[MAX_NAME_LENGTH];
+    char *target;
     uint32_t target_len;
-
     for (uint8_t argno; argno < args.argc;) {
         if (memcmp(args.argv[argno].buffer, "-name", args.argv[argno].length) == 0) {
             argno++;
-            memcpy(target, args.argv[argno].buffer, args.argv[argno].length);
+            target = args.argv[argno].buffer;
             target_len = args.argv[argno].length;
         }
-
         argno++;
     }
 
