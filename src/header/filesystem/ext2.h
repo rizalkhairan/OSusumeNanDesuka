@@ -474,14 +474,6 @@ static uint32_t find_free_in_bgd(uint32_t bgd_index);
  */
 void read_inode(uint32_t inode_num, struct EXT2Inode *out);
 
-/**
- * @brief find an directory in an inode
- * @param dir_inode inode to be searched
- * @param name name of the directory that is being searched
- * @param name_len length of the name of the directory that is being searched
- * @param result the directory that is found
- */
-bool find_directory_entry(struct EXT2Inode *dir_inode, char *name, uint8_t name_len, struct EXT2DirectoryEntry *result);
 
 // Helper to find first free block in group, or anywhere else if one exists
 uint32_t find_free_anywhere(uint32_t bgd_index);
@@ -489,10 +481,62 @@ uint32_t find_free_anywhere(uint32_t bgd_index);
 // Check whether there's n blocks available to store data inside the disk
 bool exists_n_free_blocks(int n);
 
-// add dir and its name to directory entry in inode_number
-// TODO: Should there be any validation here (thus, refactoring this to an int for returning error code),
-// or should this just assume that everything will happen perfectly (enough block, etc)
-void add_directory_entry(struct EXT2DirectoryEntry dir, char *name, uint32_t inode_number);
+/**
+ * @brief allocate additional contiguous blocks for a node
+ * @param node inode to allocate blocks for
+ * @param preferred_bgd it is located at the node inode bgd
+ * @param blocks_needed amount of blocks needed
+ * @return first block address of the newly allocated blocks 
+ */
+uint32_t allocate_additional_blocks(struct EXT2Inode *node, uint32_t preferred_bgd, uint32_t blocks_needed);
+
+/**
+ * @brief initialize directory entries for newly created directory
+ * @param node inode to allocate blocks for
+ * @param inode inode number of the directory
+ * @param parent_inode inode number of the parent directory
+ */
+void init_directory_table(struct EXT2Inode *node, uint32_t inode, uint32_t parent_inode);
+
+/**
+ * @brief find an directory in an inode
+ * @param request the request that contains the directory name
+ * @param parent_inode the parent inode that contains the directory
+ * @param result the directory that is found
+ */
+bool find_directory_entry(struct EXT2DriverRequest *request, struct EXT2Inode *parent_inode, struct EXT2DirectoryEntry *result);
+
+/**
+ * @brief get the length of an entry including the name and padding
+ * @param entry the directory entry
+ * @return the length of the entry
+ */
+uint16_t get_entry_len(struct EXT2DirectoryEntry *entry);
+
+/**
+ * @brief attempt to add  a directory entry to a parent directory
+ * @param request write request
+ * @param dir directory entry to be inserted
+ * @param parent_inode inode of the parent directory
+ * @return 0: success, 1: success with additional block, 2: entry with the same name already exist, -1: unknown error, -2: not enough space
+ */
+int8_t add_directory_entry(struct EXT2DriverRequest *request, struct EXT2DirectoryEntry *dir, struct EXT2Inode *parent_inode);
+
+/**
+ * @brief attempt to delete directory entry from a parent directory by leaving gaps in the directory entries
+ * @param delete_request request containing the parent inode to be searched on
+ * @param deleted_inode_number inode number of the deleted directory entry if succesfully deleted
+ * @return 0: success, 1: not found, -1: unknown error
+ */
+int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct EXT2Inode* parent, uint32_t* deleted_inode_number);
+
+/**
+ * @brief check whether the entry is equal to the request
+ * @param entry the directory entry
+ * @param request the request
+ * @return true if equal, false otherwise
+ */
+bool correct_request_entry(struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 
 /**
  * @brief attempt to delete directory entry from a parent directory by leaving gaps in the directory entries
@@ -512,5 +556,20 @@ bool correct_request_entry(struct EXT2DirectoryEntry *entry, struct EXT2DriverRe
 
 bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 
-void updateBGDTInode(uint32_t inode_number, bool is_update);
+void update_bgdt(void);
+
+struct EXT2CopyRequest
+{
+    uint32_t root_inode;
+    char* source;
+    char* destination;
+}__attribute__((packed));
+ 
+int8_t copy_cp(struct EXT2CopyRequest* copy_request);
+int8_t move_mv(struct EXT2CopyRequest* copy_request);
+int8_t exist_ext2(uint32_t base_inode, const char *path, uint32_t *res_inode);
+void split_path(const char *path, char *parent_out, char *leaf_out);
+int8_t recursive_move_dir_files(uint32_t src_parent, char* src_name, uint32_t src_dir_inode, uint32_t dest_dir_inode);
+int8_t recursive_make_dir(uint32_t src_parent, char* src_name, uint32_t src_dir_inode, uint32_t dest_dir_inode);
+int8_t delete_recur_dir(uint32_t parent_inode, char* cur_dir_name);
 #endif
