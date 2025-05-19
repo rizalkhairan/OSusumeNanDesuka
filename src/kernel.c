@@ -69,7 +69,17 @@ void kernel_setup(void) {
     };
     uint32_t z = write(&req3);
 
-    char nijiiro[430] = "mawaru machikado yukikau hitobito hitori ni hitotsu kakegae no nai story kitto watashi mo sonna fuu ni naritakatta ougon no tsuki yorisou hoshi mo asatsuyu ni nureta hana mo todokanai to okubyou na kokoro ni kagi wo kaketa utsumuku namida ochite hajiketa chiisana niji utsushita kuraun hiroiageru te hitori ja nakatta tonari de utau koe kowagari na senaka wo oshite tojikometa hazu no kokoro ni tsubasa yadosu mahou wo kureta kara";
+    struct EXT2DriverRequest reqnew = {
+        .name = "yoisaki",
+        .name_len = 7,
+        .parent_inode = 2,
+        .buffer_size = 8,
+        .is_directory = true,
+        .buf = {0},
+    };
+    uint32_t w = write(&reqnew);
+
+  char nijiiro[430] = "mawaru machikado yukikau hitobito hitori ni hitotsu kakegae no nai story kitto watashi mo sonna fuu ni naritakatta ougon no tsuki yorisou hoshi mo asatsuyu ni nureta hana mo todokanai to okubyou na kokoro ni kagi wo kaketa utsumuku namida ochite hajiketa chiisana niji utsushita kuraun hiroiageru te hitori ja nakatta tonari de utau koe kowagari na senaka wo oshite tojikometa hazu no kokoro ni tsubasa yadosu mahou wo kureta kara";
     struct BlockBuffer file = {0};
     memcpy(file.buf, nijiiro, 430);
     struct EXT2DriverRequest req4 = {
