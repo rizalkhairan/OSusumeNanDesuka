@@ -640,12 +640,9 @@ void cat(const char* input, uint32_t length) {
     uint8_t *point = &retval;
     syscall(11, &new.inode, point, 0);
 
-    // terminal_buffer.current_line_col = 0;
-    // terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
-    // syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-    // syscall(6, cwd_name, cwd_name_len, 0xD);
+    terminal_buffer.current_line_row += (retval + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+    syscall(10, (uint32_t)&terminal_buffer, 0, 0);
 }
-
 // --------------- comands/find ---------------
 
 #define DIRECTORY_ENTRY_SEARCH_QUEUE_SIZE 1024
