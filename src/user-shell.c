@@ -50,7 +50,7 @@ int main(void) {
     terminal_initialize();
     syscall(7, 0, 0, 0);
     // execute("cd kusanagi", 11);
-    // execute("cat nijiiro", 11);
+    // execute("ls", 2);
     while(true){
         char c;
         syscall(4, &c, 0, 0);
@@ -562,8 +562,10 @@ void cd(const char* input, uint32_t length){
         }
 
         cwd_inode = res;
+        uint32_t a = cwd_inode;
         cwd_name_len = absolute_path[depth].length;
         memcpy(cwd_name, absolute_path[depth].name, absolute_path[depth].length);
+        updateAbsolutePath();
     }
     
     get_absolute_path();
@@ -652,8 +654,12 @@ void ls(const char* input, uint32_t length) {
     }
     struct EXT2DriverRequest request;
     uint32_t retFile = 0;
-    request.parent_inode = cwd_inode;
-    char buff[BLOCK_COUNT * BLOCK_SIZE];
+    if(depth==0){
+        request.parent_inode = 2;
+    } else{
+        request.parent_inode = absolute_path[depth-1].inode_num;
+    }
+    char buff[BLOCK_COUNT * BLOCK_SIZE] = {0};
     request.buf = buff;
     request.name = cwd_name;
     request.name_len = cwd_name_len;
@@ -665,12 +671,18 @@ void ls(const char* input, uint32_t length) {
         struct EXT2DirectoryEntry *entry = (struct EXT2DirectoryEntry*)request.buf;
         if(entry->inode != -1) {
             char *name = get_entry_name_shell(entry);
+            terminal_buffer.current_line_col = 0;
+            terminal_buffer.current_line_row += (entry->name_len + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+            syscall(10, (uint32_t)&terminal_buffer, 0, 0);
             syscall(6, (uint32_t)name, entry->name_len, 0xF);
         }
         while (entry->rec_len != 0) {
             entry = get_next_directory_entry_shell(entry);
             if(entry->inode != -1) {
                 char *name = get_entry_name_shell(entry);
+                terminal_buffer.current_line_col = 0;
+                terminal_buffer.current_line_row += (entry->name_len + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+                syscall(10, (uint32_t)&terminal_buffer, 0, 0);
                 syscall(6, (uint32_t)name, entry->name_len, 0xF);
             }
         }
@@ -764,11 +776,7 @@ void rm(const char* input, uint32_t length) {
         terminal_buffer.current_line_row += (args.argv[0].length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         
-        if (result != 0) {
-            syscall(6, "Failed to remove directory", 26, 0x4);
-        } else {
-            syscall(6, "Directory removed successfully", 30, 0xA);
-        }
+        syscall(6, "Trying to remove directory...", 29, 0xE);
     } else {
         // File deletion
         struct EXT2DriverRequest delete_request = {
@@ -785,13 +793,9 @@ void rm(const char* input, uint32_t length) {
 
         terminal_buffer.current_line_col = 0;
         terminal_buffer.current_line_row += (args.argv[0].length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
-        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);    
         
-        if (result != 0) {
-            syscall(6, "Failed to remove file", 21, 0x4);
-        } else {
-            syscall(6, "File removed successfully", 25, 0xA);
-        }
+        syscall(6, "Trying to remove file...", 24, 0xE);
     }
 }
 
