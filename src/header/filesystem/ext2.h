@@ -552,4 +552,20 @@ bool correct_request_entry(struct EXT2DirectoryEntry *entry, struct EXT2DriverRe
 bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 
 void update_bgdt(void);
+void update_superblock(void);
+
+struct EXT2CopyRequest
+{
+    uint32_t root_inode;
+    char* source;
+    char* destination;
+}__attribute__((packed));
+ 
+int8_t copy_cp(struct EXT2CopyRequest* copy_request);
+int8_t move_mv(struct EXT2CopyRequest* copy_request);
+int8_t exist_ext2(uint32_t base_inode, const char *path, uint32_t *res_inode);
+void split_path(const char *path, char *parent_out, char *leaf_out);
+int8_t recursive_move_dir_files(uint32_t src_parent, char* src_name, uint32_t src_dir_inode, uint32_t dest_dir_inode);
+int8_t recursive_make_dir(uint32_t src_parent, char* src_name, uint32_t src_dir_inode, uint32_t dest_dir_inode);
+int8_t delete_recur_dir(uint32_t parent_inode, char* cur_dir_name);
 #endif
