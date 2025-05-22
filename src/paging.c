@@ -215,3 +215,4 @@ void paging_use_page_directory(struct PageDirectory *page_dir_virtual_addr) {
     if ((uint32_t) page_dir_virtual_addr > KERNEL_VIRTUAL_ADDRESS_BASE)
         physical_addr_page_dir -= KERNEL_VIRTUAL_ADDRESS_BASE;
     __asm__  volatile("mov %0, %%cr3" : /* <Empty> */ : "r"(physical_addr_page_dir): "memory");
+}

@@ -3,7 +3,34 @@
 #include "header/stdlib/string.h"
 #include "header/cpu/gdt.h"
 
+struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX];
 
+struct {
+    uint32_t active_process_count;
+    uint32_t latest_pid;
+} process_manager_state = {
+    .active_process_count = 0,
+    .latest_pid = 0,
+};
+
+uint32_t ceil_div(uint32_t a, uint32_t b){
+    return (a+b-1)/b;
+}
+
+uint32_t process_generate_new_pid(){
+    return ++process_manager_state.latest_pid;
+}
+
+int32_t process_list_get_inactive_index(){
+    for (int i = 0; i < PROCESS_COUNT_MAX; i++) {
+        if (_process_list[i].metadata.process_state != RUNNING &&
+            _process_list[i].metadata.process_state != READY &&
+            _process_list[i].metadata.process_state != BLOCKED) {
+            return i;
+        }
+    }
+    return -1;
+}
 
 int32_t process_create_user_process(struct EXT2DriverRequest request) {
     int32_t retcode = PROCESS_CREATE_SUCCESS; 
@@ -34,3 +61,4 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
 exit_cleanup:
     return retcode;
 }
+
