@@ -88,6 +88,8 @@ struct ProcessControlBlock {
     } memory;
 };
 
+extern struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX];
+
 /**
  * Get currently running process PCB pointer
  * 
@@ -112,5 +114,9 @@ int32_t process_create_user_process(struct EXT2DriverRequest request);
  * @return    True if process destruction success
  */
 bool process_destroy(uint32_t pid);
+
+uint32_t ceil_div(uint32_t a, uint32_t b);
+uint32_t process_generate_new_pid();
+int32_t process_list_get_inactive_index();
 
 #endif

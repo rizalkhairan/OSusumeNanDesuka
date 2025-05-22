@@ -11,6 +11,7 @@
 #include "header/filesystem/ext2.h"
 #include "header/stdlib/string.h"
 #include "header/memory/paging.h"
+#include "header/process/process.h"
 
 void kernel_setup(void) {
     load_gdt(&_gdt_gdtr);
@@ -132,6 +133,9 @@ void kernel_setup(void) {
     uint32_t d = write(&req7);
 
     set_tss_kernel_current_stack();
-    kernel_execute_user_program((uint8_t*) 0);
+    // kernel_execute_user_program((uint8_t*) 0);
+    process_create_user_process(request);
+    paging_use_page_directory(_process_list[0].context.page_directory_virtual_addr);
+    kernel_execute_user_program((uint8_t*) 0x0);
     while (true);
 }
