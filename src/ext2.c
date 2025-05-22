@@ -1132,12 +1132,14 @@ int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct E
                 }
                 *deleted_inode_number = entry->inode;
                 entry->inode = 0;   // For safe measure
+                uint16_t deleted_entry_rec_len = entry->rec_len;    // As it is possible the entry will be overwritten on read_blocks
                 write_blocks(&directory_entries[0], current_loaded_block, 1);
+
                 read_blocks(&directory_entries[0], prev_loaded_block, 1);
                 if (entry->rec_len == 0) {
                     prev_entry->rec_len = 0;
                 } else {
-                    prev_entry->rec_len += entry->rec_len;  // Point to the same offset in the stack as was previously loaded
+                    prev_entry->rec_len += deleted_entry_rec_len;  // Point to the same offset in the buffer as was previously loaded
                 }
                 write_blocks(&directory_entries[0], prev_loaded_block, 1);
                 return 0;
