@@ -96,7 +96,7 @@ void write_path(){
     memcpy(result + 20, fullpath, fullpath_length);
     memcpy(result + 20 + fullpath_length, "$ ", 2);
 
-    // filepath_len = 22 + fullpath_length;
+    filepath_len = 22 + fullpath_length;
 
     terminal_buffer.current_line_col = 0;
     terminal_buffer.current_line_row += (line->length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
@@ -112,7 +112,7 @@ void write_path(){
 
 void redraw_current_line(){
     InputLine line = terminal_buffer.history[terminal_buffer.current_line];
-
+    
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
     syscall(6, &line.buffer, line.length, 0xF); // redraw
 

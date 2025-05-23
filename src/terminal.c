@@ -20,13 +20,13 @@
 //     terminal_buffer.current_line_col = 0; // will change depending on offset
 //     terminal_buffer.cursor_row = terminal_buffer.current_line_row;
 //     terminal_buffer.cursor_col = terminal_buffer.current_line_col;
-//     TerminalLine* line = &terminal_buffer.history[0];
+//     InputLine* line = &terminal_buffer.history[0];
 //     line->length = 0;
 //     framebuffer_set_cursor(terminal_buffer.cursor_row, terminal_buffer.cursor_col);
 // }
 
 // void redraw_current_line(){
-//     TerminalLine* line = &terminal_buffer.history[terminal_buffer.current_line];
+//     InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
 //     int r = terminal_buffer.current_line_row;
 //     int c = terminal_buffer.current_line_col;
 
@@ -50,15 +50,15 @@
 // }
 
 // void terminal_handle_input(char c){
-//     TerminalLine* line = &terminal_buffer.history[terminal_buffer.current_line];
+//     InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
 //     int cursor_index = (terminal_buffer.cursor_row - terminal_buffer.current_line_row) * FRAMEBUFFER_ROW_LENGTH + terminal_buffer.cursor_col;
 
 //     switch ((unsigned char) c) {
 //         case KEY_UP:
 //             if (terminal_buffer.viewed_line > 0) {
 //                 terminal_buffer.viewed_line--;
-//                 TerminalLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
-//                 TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+//                 InputLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
+//                 InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
 
 //                 current->length = viewed->length;
 //                 for (int i = 0; i < viewed->length; i++) {
@@ -77,8 +77,8 @@
 //                 terminal_buffer.viewed_line++;
                 
 //                 if (terminal_buffer.viewed_line < terminal_buffer.current_line) {
-//                     TerminalLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
-//                     TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+//                     InputLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
+//                     InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
         
 //                     current->length = viewed->length;
 //                     for (int i = 0; i < viewed->length; i++) {
@@ -90,7 +90,7 @@
 //                     terminal_buffer.cursor_row = max_row;
 //                     terminal_buffer.cursor_col = max_col;
 //                 } else {
-//                     TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+//                     InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
 //                     current->length = 0;
         
 //                     terminal_buffer.cursor_row = terminal_buffer.current_line_row;
@@ -172,7 +172,7 @@
 // }
 
 // void add_line_to_history(){
-//     TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+//     InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
 //     if (current->length == 0){
 //         return;
 //     }
@@ -186,7 +186,7 @@
 //     }
 
 //     if (duplicate_index != -1) {
-//         TerminalLine temp = terminal_buffer.history[duplicate_index];
+//         InputLine temp = terminal_buffer.history[duplicate_index];
 
 //         for (int i = duplicate_index; i < terminal_buffer.current_line - 1; i++) {
 //             terminal_buffer.history[i] = terminal_buffer.history[i + 1];
@@ -203,7 +203,7 @@
 //     terminal_buffer.history[terminal_buffer.current_line].length = 0;
 // }
 
-// bool is_same_line(TerminalLine l1, TerminalLine l2){
+// bool is_same_line(InputLine l1, InputLine l2){
 //     if (l1.length != l2.length){
 //         return false;
 //     } 
@@ -218,7 +218,7 @@
 // }
 
 
-// void terminal_line_insert_char(TerminalLine* line, char c, int index) {
+// void terminal_line_insert_char(InputLine* line, char c, int index) {
 //     if (line->length >= MAX_LINE_LENGTH - 1) return; 
 //     if (index < 0 || index > line->length) return;  
 
@@ -230,7 +230,7 @@
 //     line->length++;
 // }
 
-// void terminal_line_delete_char(TerminalLine* line, int index) {
+// void terminal_line_delete_char(InputLine* line, int index) {
 //     if (index < 0 || index >= line->length) return;
 
 //     for (int i = index; i < line->length - 1; i++) {

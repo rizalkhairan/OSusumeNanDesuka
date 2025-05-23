@@ -179,4 +179,6 @@ void puts(char* buf, uint32_t count, uint8_t color) {
             ++r;
         }
     }
+
+    framebuffer_write(20, 0, count + 65, 0x2, 0xf);
 }
