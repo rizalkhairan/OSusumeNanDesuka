@@ -55,7 +55,8 @@ void main_interrupt_handler(struct InterruptFrame frame) {
             syscall(frame);
             break;
         case PIC1_OFFSET + IRQ_TIMER:
-            scheduler_switch_to_next_process();
+            pic_ack(IRQ_TIMER);
+            // scheduler_switch_to_next_process();
             break;
         case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
@@ -73,6 +74,7 @@ void activate_timer_interrupt(void) {
 
     // Activate the interrupt
     out(PIC1_DATA, in(PIC1_DATA) & ~(1 << IRQ_TIMER));
+    __asm__ volatile("sti");
 }
 
 void activate_keyboard_interrupt(void) {

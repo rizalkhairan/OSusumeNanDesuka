@@ -19,7 +19,7 @@ void kernel_setup(void) {
     pic_remap();
     initialize_idt();
     activate_keyboard_interrupt();
-    scheduler_init();
+    // scheduler_init();
     framebuffer_clear();
     framebuffer_set_cursor(0, 0);
     initialize_filesystem_ext2();
@@ -147,6 +147,7 @@ void kernel_setup(void) {
     set_tss_kernel_current_stack();
     // kernel_execute_user_program((uint8_t*) 0);
     process_create_user_process(request);
+    scheduler_init();
     paging_use_page_directory(_process_list[0].context.page_directory_virtual_addr);
     kernel_execute_user_program((uint8_t*) 0x0);
     while (true);
