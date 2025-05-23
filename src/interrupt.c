@@ -56,6 +56,17 @@ void main_interrupt_handler(struct InterruptFrame frame) {
             break;
         case PIC1_OFFSET + IRQ_TIMER:
             pic_ack(IRQ_TIMER);
+            // struct ProcessControlBlock* current_running_pcb = process_get_current_running_pcb_pointer();
+            // struct Context ctx = {
+            //     .cpu = frame.cpu,
+            //     .eip = frame.int_stack.eip,
+            //     .cs = frame.int_stack.cs,
+            //     .eflags = frame.int_stack.eflags,
+            //     .esp = frame.cpu.stack.esp,
+            //     .ss = current_running_pcb->context.ss,
+            //     .page_directory_virtual_addr = current_running_pcb->context.page_directory_virtual_addr,
+            // };
+            // scheduler_save_context_to_current_running_pcb(ctx);
             // scheduler_switch_to_next_process();
             break;
         case PIC1_OFFSET + IRQ_KEYBOARD:

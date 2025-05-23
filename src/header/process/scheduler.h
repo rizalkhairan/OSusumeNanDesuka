@@ -16,6 +16,21 @@
 
 #define PIT_CHANNEL_0_DATA_PIO 0x40
 
+#define PROCESS_QUEUE_SIZE (PROCESS_COUNT_MAX * 2)
+
+
+struct PCBQueueItem {
+    struct ProcessControlBlock* pcb;
+};
+struct PCBQueue {
+    struct PCBQueueItem items[PROCESS_QUEUE_SIZE];
+    uint8_t head;
+    uint8_t tail;
+};
+
+extern struct PCBQueue scheduling_queue;
+
+
 /**
  * Read all general purpose register values and set control register.
  * Resume the execution flow back to ctx.eip and ctx.eflags

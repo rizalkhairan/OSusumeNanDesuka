@@ -1,5 +1,6 @@
 // process.c
 #include "header/process/process.h"
+#include "header/process/scheduler.h"
 #include "header/memory/paging.h"
 #include "header/stdlib/string.h"
 #include "header/cpu/gdt.h"
