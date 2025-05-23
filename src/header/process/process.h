@@ -54,10 +54,12 @@
  * @param page_directory_virtual_addr CPU register CR3, containing pointer to active page directory
  */
 struct Context {
-    // TODO: Add important field here
     struct CPURegister cpu;
     uint32_t eip;
+    uint32_t cs;
     uint32_t eflags;
+    uint32_t esp;
+    uint32_t ss;
     struct PageDirectory* page_directory_virtual_addr;
 };
 
@@ -78,6 +80,7 @@ struct ProcessControlBlock {
     struct {
         uint32_t pid;
         PROCESS_STATE process_state;
+        char name[PROCESS_NAME_LENGTH_MAX];
     } metadata;
 
     struct Context context;
@@ -87,6 +90,15 @@ struct ProcessControlBlock {
         uint32_t page_frame_used_count;
     } memory;
 };
+
+struct ProcessManagerState {
+    uint32_t active_process_count;
+    uint32_t latest_pid;
+    bool process_used[PROCESS_COUNT_MAX];
+};
+
+extern struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX];
+extern struct ProcessManagerState process_manager_state;
 
 extern struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX];
 
@@ -117,6 +129,6 @@ bool process_destroy(uint32_t pid);
 
 uint32_t ceil_div(uint32_t a, uint32_t b);
 uint32_t process_generate_new_pid();
-int32_t process_list_get_inactive_index();
+uint32_t process_list_get_inactive_index();
 
 #endif
