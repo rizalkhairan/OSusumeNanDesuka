@@ -424,122 +424,20 @@ void deallocate_node(uint32_t inode_num) {
     struct BlockBuffer bitmap;
     uint32_t bgd_index = inode_to_bgd(inode_num);
     uint32_t last_bgd_idx = bgd_index;
-    
-    // Read the block bitmap for the BGD containing this inode
     read_blocks(&bitmap, bgdt.table[bgd_index].bg_block_bitmap, 1);
     
-    // Free direct blocks
-    for (int i = 0; i < 12; i++) {
-        if (node.i_block[i] == 0) continue;
-        
-        uint32_t block_bgd = node.i_block[i] / BLOCKS_PER_GROUP;
-        if (block_bgd != last_bgd_idx) {
-            // Write current bitmap and load the new one
-            write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-            read_blocks(&bitmap, bgdt.table[block_bgd].bg_block_bitmap, 1);
-            last_bgd_idx = block_bgd;
-        }
-        
-        // Mark block as free in bitmap
-        uint32_t block_in_group = node.i_block[i] % BLOCKS_PER_GROUP;
-        set_bitmap_bit(&bitmap, block_in_group, false);
-        
-        // Update block count
-        bgdt.table[block_bgd].bg_free_blocks_count++;
+    // Deallocate the blocks
+    for (uint8_t i = 0; i < 15; i++) {
+        if (node.i_block[i] == 0) break;
+        uint32_t block = node.i_block[i];
         node.i_block[i] = 0;
+        if (i < DIRECT_BLOCK_COUNT) {
+            deallocate_block(&block, 1, &bitmap, 0, &last_bgd_idx, true);
+        } else {
+            deallocate_block(&block, 1, &bitmap, 1 + i - DIRECT_BLOCK_COUNT, &last_bgd_idx, true);
+        }
     }
-    
-    // Free singly indirect blocks
-    if (node.i_block[12] != 0) {
-        uint32_t indirect_blocks[BLOCK_SIZE / sizeof(uint32_t)];
-        read_blocks(indirect_blocks, node.i_block[12], 1);
-        
-        // Free blocks pointed to by the indirect block
-        for (uint32_t i = 0; i < BLOCK_SIZE / sizeof(uint32_t); i++) {
-            if (indirect_blocks[i] == 0) continue;
-            
-            uint32_t block_bgd = indirect_blocks[i] / BLOCKS_PER_GROUP;
-            if (block_bgd != last_bgd_idx) {
-                write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-                read_blocks(&bitmap, bgdt.table[block_bgd].bg_block_bitmap, 1);
-                last_bgd_idx = block_bgd;
-            }
-            
-            uint32_t block_in_group = indirect_blocks[i] % BLOCKS_PER_GROUP;
-            set_bitmap_bit(&bitmap, block_in_group, false);
-            bgdt.table[block_bgd].bg_free_blocks_count++;
-        }
-        
-        // Free the indirect block itself
-        uint32_t ind_bgd = node.i_block[12] / BLOCKS_PER_GROUP;
-        if (ind_bgd != last_bgd_idx) {
-            write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-            read_blocks(&bitmap, bgdt.table[ind_bgd].bg_block_bitmap, 1);
-            last_bgd_idx = ind_bgd;
-        }
-        
-        uint32_t ind_block_in_group = node.i_block[12] % BLOCKS_PER_GROUP;
-        set_bitmap_bit(&bitmap, ind_block_in_group, false);
-        bgdt.table[ind_bgd].bg_free_blocks_count++;
-        node.i_block[12] = 0;
-    }
-    
-    // Free doubly indirect blocks
-    if (node.i_block[13] != 0) {
-        uint32_t dbl_indirect_blocks[BLOCK_SIZE / sizeof(uint32_t)];
-        read_blocks(dbl_indirect_blocks, node.i_block[13], 1);
-        
-        for (uint32_t i = 0; i < BLOCK_SIZE / sizeof(uint32_t); i++) {
-            if (dbl_indirect_blocks[i] == 0) continue;
-            
-            uint32_t indirect_blocks[BLOCK_SIZE / sizeof(uint32_t)];
-            read_blocks(indirect_blocks, dbl_indirect_blocks[i], 1);
-            
-            // Free blocks pointed to by this indirect block
-            for (uint32_t j = 0; j < BLOCK_SIZE / sizeof(uint32_t); j++) {
-                if (indirect_blocks[j] == 0) continue;
-                
-                uint32_t block_bgd = indirect_blocks[j] / BLOCKS_PER_GROUP;
-                if (block_bgd != last_bgd_idx) {
-                    write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-                    read_blocks(&bitmap, bgdt.table[block_bgd].bg_block_bitmap, 1);
-                    last_bgd_idx = block_bgd;
-                }
-                
-                uint32_t block_in_group = indirect_blocks[j] % BLOCKS_PER_GROUP;
-                set_bitmap_bit(&bitmap, block_in_group, false);
-                bgdt.table[block_bgd].bg_free_blocks_count++;
-            }
-            
-            // Free the indirect block
-            uint32_t ind_bgd = dbl_indirect_blocks[i] / BLOCKS_PER_GROUP;
-            if (ind_bgd != last_bgd_idx) {
-                write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-                read_blocks(&bitmap, bgdt.table[ind_bgd].bg_block_bitmap, 1);
-                last_bgd_idx = ind_bgd;
-            }
-            
-            uint32_t ind_block_in_group = dbl_indirect_blocks[i] % BLOCKS_PER_GROUP;
-            set_bitmap_bit(&bitmap, ind_block_in_group, false);
-            bgdt.table[ind_bgd].bg_free_blocks_count++;
-        }
-        
-        // Free the doubly indirect block itself
-        uint32_t dbl_bgd = node.i_block[13] / BLOCKS_PER_GROUP;
-        if (dbl_bgd != last_bgd_idx) {
-            write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-            read_blocks(&bitmap, bgdt.table[dbl_bgd].bg_block_bitmap, 1);
-            last_bgd_idx = dbl_bgd;
-        }
-        
-        uint32_t dbl_block_in_group = node.i_block[13] % BLOCKS_PER_GROUP;
-        set_bitmap_bit(&bitmap, dbl_block_in_group, false);
-        bgdt.table[dbl_bgd].bg_free_blocks_count++;
-        node.i_block[13] = 0;
-    }
-    
-    // Write the last bitmap we modified
-    write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
+    write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1); // Lastly flush the last bitmap
     
     // Mark inode as free in inode bitmap
     uint32_t inode_local = inode_to_local(inode_num);
@@ -547,21 +445,12 @@ void deallocate_node(uint32_t inode_num) {
     set_bitmap_bit(&bitmap, inode_local, false);
     write_blocks(&bitmap, bgdt.table[bgd_index].bg_inode_bitmap, 1);
     
-    // Update inode count in BGD
+    // Update counter metadata
     bgdt.table[bgd_index].bg_free_inodes_count++;
-    
-    // If it was a directory, update directory count
+    sb.s_free_inodes_count++;
     if ((node.i_mode & 0xF000) == EXT2_S_IFDIR) {
         bgdt.table[bgd_index].bg_used_dirs_count--;
     }
-    
-    // Update the superblock's counts
-    sb.s_free_blocks_count++;
-    sb.s_free_inodes_count++;
-    
-    // Write BGD and superblock
-    write_blocks(&bgdt, 2, 1);
-    write_blocks(&sb, 1, 1);
 }
 
 
@@ -587,20 +476,16 @@ void deallocate_blocks(void *loc, uint32_t blocks) {
 }
 
 // Recursive block deallocator
-uint32_t deallocate_block(uint32_t *locations, uint32_t blocks,
-                          struct BlockBuffer *bitmap, uint32_t depth,
-                          uint32_t *last_bgd, bool bgd_loaded) {
-
+uint32_t deallocate_block(uint32_t *locations, uint32_t blocks, struct BlockBuffer *bitmap, uint32_t depth, uint32_t *last_bgd, bool bgd_loaded) {
     if (!locations || !bitmap || !last_bgd) return *last_bgd;
+
     for (uint32_t i = 0; i < blocks; i++) {
         if (locations[i] == 0) continue;
 
         if (depth > 0) {
-            uint32_t indirect_blocks[BLOCK_SIZE / sizeof(uint32_t)];
-            read_blocks(indirect_blocks, locations[i], 1);
-
-            deallocate_block(indirect_blocks, BLOCK_SIZE / sizeof(uint32_t),
-                             bitmap, depth - 1, last_bgd, false);
+            struct BlockBuffer indirect_blocks;
+            read_blocks(&indirect_blocks, locations[i], 1);
+            deallocate_block((uint32_t *)indirect_blocks.buf, BLOCK_SIZE / sizeof(uint32_t), bitmap, depth - 1, last_bgd, true);
         }
 
         uint32_t bgd_index = locations[i] / BLOCKS_PER_GROUP;
@@ -611,13 +496,9 @@ uint32_t deallocate_block(uint32_t *locations, uint32_t blocks,
             read_blocks(bitmap, bgdt.table[bgd_index].bg_block_bitmap, 1);
             *last_bgd = bgd_index;
         }
-
         set_bitmap_bit(bitmap, block_in_group, false);
-        locations[i] = 0;
-    }
-
-    if (!bgd_loaded) {
-        write_blocks(bitmap, bgdt.table[*last_bgd].bg_block_bitmap, 1);
+        bgdt.table[bgd_index].bg_free_blocks_count++;
+        sb.s_free_blocks_count++;
     }
 
     return *last_bgd;
