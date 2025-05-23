@@ -11,10 +11,10 @@
 typedef struct {
     char buffer[MAX_LINE_LENGTH];
     int length;
-} TerminalLine;
+} InputLine;
 
 typedef struct {
-    TerminalLine history[MAX_HISTORY];
+    InputLine history[MAX_HISTORY];
     int hist_length;
     int current_line; 
     int viewed_line;
@@ -22,9 +22,9 @@ typedef struct {
     int current_line_col;
     int cursor_row;
     int cursor_col;
-} TerminalBuffer;
+} InputBuffer;
 
-static TerminalBuffer terminal_buffer;
+static InputBuffer terminal_buffer;
 
 void terminal_initialize();
 void write_path();
@@ -32,8 +32,8 @@ void redraw_current_line();
 void terminal_handle_input(char);
 void add_line_to_history();
 bool is_same_line(TerminalLine, TerminalLine);
-void terminal_line_insert_char(TerminalLine*, char, int);
-void terminal_line_delete_char(TerminalLine*, int);
+void terminal_line_insert_char(InputLine*, char, int);
+void terminal_line_delete_char(InputLine*, int);
 
 // --------------- utilities  ---------------
 #define MAX_ARGC 8

@@ -6,7 +6,7 @@
 #include "header/text/framebuffer.h"
 #include "header/terminal/terminal.h"
 
-static TerminalBuffer terminal_buffer;
+static InputBuffer terminal_buffer;
 
 void io_wait(void) {
     out(0x80, 0);
@@ -118,7 +118,7 @@ void syscall(struct InterruptFrame frame) {
             framebuffer_set_cursor((uint8_t) frame.cpu.general.ebx, (uint8_t) frame.cpu.general.ecx);
             break;
         case 10:
-            TerminalBuffer* src = (TerminalBuffer*) frame.cpu.general.ebx;
+            InputBuffer* src = (InputBuffer*) frame.cpu.general.ebx;
             terminal_buffer = *src;
             break;
         case 11:

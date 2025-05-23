@@ -2,7 +2,7 @@
 #include "header/text/framebuffer.h"
 #include "header/keyboard/keyboard.h"
 
-static TerminalBuffer terminal_buffer;
+// static TerminalBuffer terminal_buffer;
 
 // void terminal_initialize(){
 //     framebuffer_clear();

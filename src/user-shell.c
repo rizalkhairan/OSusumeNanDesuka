@@ -15,7 +15,7 @@ uint32_t cwd_inode = 2;
 char cwd_name[255];
 uint16_t cwd_name_len;
 uint32_t filepath_len = 22;
-static TerminalBuffer terminal_buffer;
+static InputBuffer terminal_buffer;
 
 Command command_table[] = {
     { "clear",  5},
@@ -78,7 +78,7 @@ void terminal_initialize(){
     terminal_buffer.current_line_col = filepath_len + 1; // will change depending on offset
     terminal_buffer.cursor_row = terminal_buffer.current_line_row;
     terminal_buffer.cursor_col = terminal_buffer.current_line_col;
-    TerminalLine* line = &terminal_buffer.history[0];
+    InputLine* line = &terminal_buffer.history[0];
     line->length = 0;
     
     syscall(9, terminal_buffer.cursor_row, terminal_buffer.cursor_col, 0);
@@ -88,7 +88,7 @@ void terminal_initialize(){
 void write_path(){
     char result[2040+filepath_len];
     char* filepath = "OSusumeWaNanDesuka?:";
-    TerminalLine* line = &terminal_buffer.history[terminal_buffer.current_line];
+    InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
     get_absolute_path();
     fullpath_length = get_absolute_path_length();
     
@@ -111,7 +111,7 @@ void write_path(){
 }
 
 void redraw_current_line(){
-    TerminalLine line = terminal_buffer.history[terminal_buffer.current_line];
+    InputLine line = terminal_buffer.history[terminal_buffer.current_line];
 
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
     syscall(6, &line.buffer, line.length, 0xF);
@@ -121,7 +121,7 @@ void redraw_current_line(){
 }
 
 void terminal_handle_input(char c){
-    TerminalLine* line = &terminal_buffer.history[terminal_buffer.current_line];
+    InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
     int cursor_index;
     if (terminal_buffer.cursor_row == terminal_buffer.current_line_row) {
         cursor_index = terminal_buffer.cursor_col - terminal_buffer.current_line_col;
@@ -134,8 +134,8 @@ void terminal_handle_input(char c){
         case KEY_UP:
             if (terminal_buffer.viewed_line > 0) {
                 terminal_buffer.viewed_line--;
-                TerminalLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
-                TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+                InputLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
+                InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
 
                 current->length = viewed->length;
                 for (int i = 0; i < viewed->length; i++) {
@@ -154,8 +154,8 @@ void terminal_handle_input(char c){
                 terminal_buffer.viewed_line++;
                 
                 if (terminal_buffer.viewed_line < terminal_buffer.current_line) {
-                    TerminalLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
-                    TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+                    InputLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
+                    InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
         
                     current->length = viewed->length;
                     for (int i = 0; i < viewed->length; i++) {
@@ -167,7 +167,7 @@ void terminal_handle_input(char c){
                     terminal_buffer.cursor_row = max_row;
                     terminal_buffer.cursor_col = max_col;
                 } else {
-                    TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+                    InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
                     current->length = 0;
         
                     terminal_buffer.cursor_row = terminal_buffer.current_line_row;
@@ -205,7 +205,7 @@ void terminal_handle_input(char c){
             break;
         case '\n':
             if (terminal_buffer.hist_length < MAX_HISTORY) {
-                TerminalLine* line = &terminal_buffer.history[terminal_buffer.current_line];
+                InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
                 execute(line->buffer, line->length);
                 add_line_to_history(line);
                 write_path();
@@ -243,7 +243,7 @@ void terminal_handle_input(char c){
 }
 
 void add_line_to_history(){
-    TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+    InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
     if (current->length == 0){
         return;
     }
@@ -257,7 +257,7 @@ void add_line_to_history(){
     }
 
     if (duplicate_index != -1) {
-        TerminalLine temp = terminal_buffer.history[duplicate_index];
+        InputLine temp = terminal_buffer.history[duplicate_index];
 
         for (int i = duplicate_index; i < terminal_buffer.current_line - 1; i++) {
             terminal_buffer.history[i] = terminal_buffer.history[i + 1];
@@ -274,7 +274,7 @@ void add_line_to_history(){
     terminal_buffer.history[terminal_buffer.current_line].length = 0;
 }
 
-bool is_same_line(TerminalLine l1, TerminalLine l2){
+bool is_same_line(InputLine l1, InputLine l2){
     if (l1.length != l2.length){
         return false;
     } 
@@ -288,7 +288,7 @@ bool is_same_line(TerminalLine l1, TerminalLine l2){
     return true;
 }
 
-void terminal_line_insert_char(TerminalLine* line, char c, int index) {
+void terminal_line_insert_char(InputLine* line, char c, int index) {
     if (line->length >= MAX_LINE_LENGTH - 1) return; 
     if (index < 0 || index > line->length) return;  
 
@@ -300,7 +300,7 @@ void terminal_line_insert_char(TerminalLine* line, char c, int index) {
     line->length++;
 }
 
-void terminal_line_delete_char(TerminalLine* line, int index) {
+void terminal_line_delete_char(InputLine* line, int index) {
     if (index < 0 || index >= line->length) return;
 
     for (int i = index; i < line->length - 1; i++) {
