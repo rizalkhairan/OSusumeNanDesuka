@@ -122,7 +122,6 @@ void write_path(bool after_command){
 
 void redraw_current_line(){
     InputLine line = terminal_buffer.history[terminal_buffer.current_line];
-    
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
     syscall(6, &line.buffer, line.length, 0xF); // redraw
 

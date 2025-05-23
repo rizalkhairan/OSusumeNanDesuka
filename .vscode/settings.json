@@ -18,7 +18,11 @@
         "string.h": "c",
         "ext2.h": "c",
         "framebuffer.h": "c",
+<<<<<<< HEAD
         "bitset": "c",
         "random": "c"
+=======
+        "bitset": "c"
+>>>>>>> b77f684 (chore: rename input buffer)
     },
 }
