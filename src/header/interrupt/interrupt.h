@@ -125,7 +125,8 @@ struct InterruptFrame {
     struct InterruptStack int_stack;
 } __attribute__((packed));
 
-
+// Activate PIC mask for timer only
+void activate_timer_interrupt(void);
 
 // Activate PIC mask for keyboard only
 void activate_keyboard_interrupt(void);
