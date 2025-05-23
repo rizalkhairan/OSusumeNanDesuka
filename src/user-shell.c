@@ -114,9 +114,9 @@ void redraw_current_line(){
     InputLine line = terminal_buffer.history[terminal_buffer.current_line];
 
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-    syscall(6, &line.buffer, line.length, 0xF);
+    syscall(6, &line.buffer, line.length, 0xF); // redraw
 
-    syscall(9, terminal_buffer.cursor_row, terminal_buffer.cursor_col, 0);
+    syscall(9, terminal_buffer.cursor_row, terminal_buffer.cursor_col, 0); // setcursor
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
 }
 
