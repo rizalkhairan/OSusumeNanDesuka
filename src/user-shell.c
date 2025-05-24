@@ -136,8 +136,8 @@ void terminal_handle_input(char c){
     if (terminal_buffer.cursor_row == terminal_buffer.current_line_row) {
         cursor_index = terminal_buffer.cursor_col - terminal_buffer.current_line_col;
     } else {
-        cursor_index = (terminal_buffer.cursor_row - terminal_buffer.current_line_row + (filepath_len / FRAMEBUFFER_ROW_LENGTH)) * FRAMEBUFFER_ROW_LENGTH +
-                       terminal_buffer.cursor_col - filepath_len - (filepath_len / FRAMEBUFFER_ROW_LENGTH > 0 ? 0 : 1);
+        cursor_index = (terminal_buffer.cursor_row - terminal_buffer.current_line_row) * FRAMEBUFFER_ROW_LENGTH +
+                        terminal_buffer.cursor_col - (filepath_len % FRAMEBUFFER_ROW_LENGTH);
     }
 
     switch ((unsigned char) c) {
@@ -256,11 +256,21 @@ void terminal_handle_input(char c){
                 if (terminal_buffer.cursor_row >= FRAMEBUFFER_COL_LENGTH-1){
                     flush();
                     write_path(false);
-                }
-                terminal_line_insert_char(line, c, cursor_index);
-                if (++terminal_buffer.cursor_col >= FRAMEBUFFER_ROW_LENGTH){
-                    terminal_buffer.cursor_col = 0;
-                    terminal_buffer.cursor_row++;
+
+                    InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+                    int max_row = terminal_buffer.current_line_row + ((terminal_buffer.current_line_col + current->length) / FRAMEBUFFER_ROW_LENGTH);
+                    int max_col = (terminal_buffer.current_line_col + current->length) % FRAMEBUFFER_ROW_LENGTH;
+                    terminal_buffer.cursor_row = max_row;
+                    terminal_buffer.cursor_col = max_col;
+                } else {
+                    if (cursor_index > line->length){
+                        cursor_index--;
+                    }
+                    terminal_line_insert_char(line, c, cursor_index);
+                    if (++terminal_buffer.cursor_col >= FRAMEBUFFER_ROW_LENGTH){
+                        terminal_buffer.cursor_col = 0;
+                        terminal_buffer.cursor_row++;
+                    }
                 }
             }
             break;
