@@ -17,8 +17,8 @@ bool pcb_dequeue(struct PCBQueue* queue, struct PCBQueueItem* pcbi) {
     if (queue->head == queue->tail) {
         return false; // Queue is empty (which it shouldn't be)
     }
-    *pcbi = queue->items[queue->head];
     queue->head = (queue->head + 1) % PROCESS_QUEUE_SIZE;
+    *pcbi = queue->items[queue->head];
     return true;
 }
 
@@ -55,7 +55,7 @@ void scheduler_switch_to_next_process(void) {
     struct PCBQueueItem next_pcb;
     pcb_dequeue(&scheduling_queue, &next_pcb);
     next_pcb.pcb->metadata.process_state = RUNNING;
-    // paging_use_page_directory(next_pcb.pcb->context.page_directory_virtual_addr);
+    paging_use_page_directory(next_pcb.pcb->context.page_directory_virtual_addr);
     process_context_switch(next_pcb.pcb->context);
 }
     
