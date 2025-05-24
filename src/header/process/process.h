@@ -82,6 +82,7 @@ struct ProcessControlBlock {
         uint32_t pid;
         PROCESS_STATE process_state;
         char name[PROCESS_NAME_LENGTH_MAX];
+        uint32_t length;
     } metadata;
 
     struct Context context;
@@ -106,7 +107,6 @@ struct ProcessManagerState {
 extern struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX];
 extern struct ProcessManagerState process_manager_state;
 
-extern struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX];
 
 /**
  * Get currently running process PCB pointer
@@ -136,5 +136,6 @@ bool process_destroy(uint32_t pid);
 uint32_t ceil_div(uint32_t a, uint32_t b);
 uint32_t process_generate_new_pid();
 uint32_t process_list_get_inactive_index();
+void process_init(void);
 
 #endif

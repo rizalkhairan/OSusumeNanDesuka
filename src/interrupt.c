@@ -182,12 +182,16 @@ void syscall(struct InterruptFrame frame) {
         case 15:
             *((int8_t*) frame.cpu.general.ecx) = move_mv((struct EXT2CopyRequest*) frame.cpu.general.ebx);
             break;
+        case 16:
+            memcpy((void*) frame.cpu.general.ebx, _process_list, sizeof(struct ProcessControlBlock)*PROCESS_COUNT_MAX);
+            memcpy((void*) frame.cpu.general.ecx, &process_manager_state, sizeof(struct ProcessManagerState));
+            break;
     }
 }
 
-void putchar(char a, uint8_t color){
-    // TODO
-}
+// void putchar(char a, uint8_t color){
+//     // TODO
+// }
 
 void puts(char* buf, uint32_t count, uint8_t color) {
     int r = terminal_buffer.current_line_row;

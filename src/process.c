@@ -81,12 +81,16 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
 
     // Copy process name (ensure null termination)
     memcpy(new_pcb->metadata.name, request.name, PROCESS_NAME_LENGTH_MAX - 1);
+    if (request.name_len >= PROCESS_NAME_LENGTH_MAX) {
+        new_pcb->metadata.length = PROCESS_NAME_LENGTH_MAX - 1;
+    } else {
+        new_pcb->metadata.length = request.name_len;
+    }
     new_pcb->metadata.name[PROCESS_NAME_LENGTH_MAX - 1] = '\0';
 
     new_pcb->metadata.pid = process_generate_new_pid();
     new_pcb->metadata.process_state = NEW;
 
-    /* Memory allocation */
     struct PageDirectory* current_pd = paging_get_current_page_directory_addr();
     struct PageDirectory* new_pd = paging_create_new_page_directory();
     if (!new_pd) {
@@ -195,4 +199,71 @@ bool process_destroy(uint32_t pid) {
         }
     }
     return false;
+}
+
+void process_init(void) {
+    // make dummy process list and process manager state
+    struct ProcessControlBlock pcsA = {
+        .metadata = {
+            .pid = 1,
+            .process_state = READY,
+            .name = "Process A",
+            .length = 9
+        },
+        .context = {
+            .eip = 0x00000000,
+            .eflags = CPU_EFLAGS_BASE_FLAG,
+            .page_directory_virtual_addr = NULL
+        },
+        .memory = {
+            .virtual_addr_used = {NULL, NULL, NULL, NULL},
+            .page_frame_used_count = 0
+        }
+    };
+
+    struct ProcessControlBlock pcsB = {
+        .metadata = {
+            .pid = 2,
+            .process_state = RUNNING,
+            .name = "Process B",
+            .length = 9
+        },
+        .context = {
+            .eip = 0x00000000,
+            .eflags = CPU_EFLAGS_BASE_FLAG,
+            .page_directory_virtual_addr = NULL
+        },
+        .memory = {
+            .virtual_addr_used = {NULL, NULL, NULL, NULL},
+            .page_frame_used_count = 0
+        }
+    };
+
+    struct ProcessControlBlock pcsC = {
+        .metadata = {
+            .pid = 3,
+            .process_state = RUNNING,
+            .name = "Process C",
+            .length = 9
+        },
+        .context = {
+            .eip = 0x00000000,
+            .eflags = CPU_EFLAGS_BASE_FLAG,
+            .page_directory_virtual_addr = NULL
+        },
+        .memory = {
+            .virtual_addr_used = {NULL, NULL, NULL, NULL},
+            .page_frame_used_count = 0
+        }
+    };
+
+    _process_list[3] = pcsA;
+    _process_list[1] = pcsB;
+    _process_list[2] = pcsC;
+
+    process_manager_state.active_process_count = 3;
+    process_manager_state.latest_pid = 3;
+    for (uint32_t i = 0; i < 4; i++) {
+        process_manager_state.process_used[i] = true;
+    }
 }
