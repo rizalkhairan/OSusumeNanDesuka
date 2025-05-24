@@ -25,16 +25,16 @@ struct PCBQueue scheduling_queue = {
 
 void scheduler_init(void) {
     // Set timer for preemptive scheduling
-    activate_timer_interrupt();
-
     struct PCBQueueItem init_process;
     for (uint8_t i = 0; i < PROCESS_COUNT_MAX; i++) {
-        if (_process_list[i].metadata.process_state == READY) {
+        if (_process_list[i].metadata.process_state == NEW) {
+            // _process_list[i].metadata.process_state = RUNNING;
             init_process.pcb = &_process_list[i];
             break;
         }
     }
     pcb_enqueue(&scheduling_queue, init_process);
+    activate_timer_interrupt();
 }
 
 void scheduler_save_context_to_current_running_pcb(struct Context ctx) {

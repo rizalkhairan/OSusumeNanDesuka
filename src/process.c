@@ -40,8 +40,10 @@ uint32_t process_list_get_inactive_index() {
 
 struct ProcessControlBlock* process_get_current_running_pcb_pointer() {
     for (uint32_t i = 0; i < PROCESS_COUNT_MAX; i++) {
+        struct ProcessControlBlock debug = _process_list[i];
+        bool debug2 = process_manager_state.process_used[i];
         if (process_manager_state.process_used[i] && 
-            _process_list[i].metadata.process_state == RUNNING) {
+            (_process_list[i].metadata.process_state == RUNNING || _process_list[i].metadata.process_state == NEW)) {
             return &_process_list[i];
         }
     }
@@ -82,7 +84,7 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     new_pcb->metadata.name[PROCESS_NAME_LENGTH_MAX - 1] = '\0';
 
     new_pcb->metadata.pid = process_generate_new_pid();
-    new_pcb->metadata.process_state = READY;
+    new_pcb->metadata.process_state = NEW;
 
     /* Memory allocation */
     struct PageDirectory* current_pd = paging_get_current_page_directory_addr();
