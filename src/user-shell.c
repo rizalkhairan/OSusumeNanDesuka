@@ -3,6 +3,7 @@
 #include "header/terminal/terminal.h"
 #include "header/text/framebuffer.h"
 #include "header/keyboard/keyboard.h"
+#include "header/process/process.h"
 
 #define BLOCK_COUNT 16
 
@@ -27,6 +28,9 @@ Command command_table[] = {
     { "mkdir",  5},
     { "rm",     2},
     { "find",   4},
+    { "kill",   4},
+    { "ps",     2},
+    { "exec",   4},
 };
 #define NUM_COMMANDS (sizeof(command_table)/sizeof(Command))
 
@@ -46,10 +50,10 @@ int main(void) {
     absolute_path[0].inode_num = 2;
     cwd_name[0] = '.';
     cwd_name_len = 1;
-
+    
     terminal_initialize();
     syscall(7, 0, 0, 0);
-    // execute("cd kusanagi", 11);
+    execute("ps", 2);
     // execute("cp yoisaki asahina", 18);
     while(true){
         char c;
@@ -483,6 +487,9 @@ void execute(const char* input, uint32_t length){
         else if(i==6){mkdir(args.argv[1].buffer, args.argv[1].length);}
         else if(i==7){rm(args.argv[1].buffer, args.argv[1].length);}
         else if(i==8){find(args.argv[1].buffer, args.argv[1].length);}
+        else if(i==9){kill(args.argv[1].buffer, args.argv[1].length);}
+        else if(i==10){ps(args.argv[1].buffer, args.argv[1].length);}
+        else if(i==11){exec(args.argv[1].buffer, args.argv[1].length);}
     } else{
         terminal_buffer.current_line_col = 0;
         terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
@@ -1133,5 +1140,97 @@ void mv(const char* input, uint32_t length){
         terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "unknown error", 13, 0x2);
+    }
+}
+
+
+void ps(const char* input, uint32_t length){
+    char head[7] = "ID NAME";
+    terminal_buffer.current_line_col = 0;
+    terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+    syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+    syscall(6, head, 7, 0x2);
+    ParsedInput args = parse_input_all(input, length, ' ');
+    if(args.argc!=0){
+        terminal_buffer.current_line_col = 0;
+        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        terminal_buffer.current_line_col = 0;
+        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "command not found", 17, 0x2);
+        return;
+    }
+    struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX];
+    struct ProcessManagerState process_manager_state;
+
+    syscall(16, (uint32_t)&_process_list, (uint32_t)&process_manager_state, 0);
+
+    for (uint32_t i = 0; i < sizeof(process_manager_state.process_used); i++) {
+        if (process_manager_state.process_used[i]){
+            uint32_t name_len = _process_list[i].metadata.length;
+            char id[2];
+            int pid = (int)_process_list[i].metadata.pid;
+            id[0] = (pid / 10) + '0'; // tens place
+            id[1] = (pid % 10) + '0'; // units place
+            char* name = _process_list[i].metadata.name;
+            
+            char teks[3 + name_len];
+            teks[0] = id[0];
+            teks[1] = id[1];
+            teks[2] = ' ';
+            for (uint32_t j = 0; j < name_len; j++) {
+                teks[3 + j] = name[j];
+            }
+
+            terminal_buffer.current_line_col = 0;
+            terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+            syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+            syscall(6, teks, 3+name_len, 0x2);
+        }
+    }
+}
+
+void exec(const char* input, uint32_t length){
+    ParsedInput args = parse_input_all(input, length, ' ');
+    if(args.argc!=1){
+        terminal_buffer.current_line_col = 0;
+        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "command not found", 17, 0x2);
+        return;
+    }
+    // syscall(??, args.argv[0].buffer, args.argv[0].length, 0);
+}
+
+void kill(const char* input, uint32_t length){
+    ParsedInput args = parse_input_all(input, length, ' ');
+    if(args.argc!=1){
+        terminal_buffer.current_line_col = 0;
+        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "command not found", 17, 0x2);
+        return;
+    }
+    // syscall(??, args.argv[0].buffer, args.argv[0].length, 0);
+}
+
+int stringToChar(char* str, uint32_t length){
+    int result = 0;
+    for(uint32_t i=0;i<length;i++){
+        result = result*10 + (str[i] - '0');
+    }
+    return result;
+}
+
+void intToString(uint32_t num, char* str, uint32_t length) {
+    // Safety check
+    if (length == 0) return;
+
+    // Null terminator at the end
+    str[length] = '\0';
+
+    for (int i = length - 1; i >= 0; i--) {
+        str[i] = (num % 10) + '0';
+        num /= 10;
     }
 }

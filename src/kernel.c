@@ -135,8 +135,13 @@ void kernel_setup(void) {
     uint32_t d = write(&req7);
 
     set_tss_kernel_current_stack();
+    // Create & execute process 0
+    process_create_user_process(request);
+    paging_use_page_directory(_process_list[0].context.page_directory_virtual_addr);
+    process_init();
+    kernel_execute_user_program((void*) 0x0);
     // kernel_execute_user_program((uint8_t*) 0);
     process_create_user_process(request);
-    scheduler_init();
-    scheduler_switch_to_next_process();
+    // scheduler_init();
+    // scheduler_switch_to_next_process();
 }
