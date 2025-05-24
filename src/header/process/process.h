@@ -45,6 +45,8 @@
 #define PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY    3
 #define PROCESS_CREATE_FAIL_FS_READ_FAILURE      4
 
+#define KERNEL_STACK_SIZE 4096
+
 /**
  * Contain information needed for task to be able to get interrupted and resumed later
  *
@@ -87,6 +89,11 @@ struct ProcessControlBlock {
         void     *virtual_addr_used[PROCESS_PAGE_FRAME_COUNT_MAX];
         uint32_t page_frame_used_count;
     } memory;
+
+    // Kernel stack info
+    // uint32_t kernel_esp;                // Top of this process's kernel stack (for TSS.esp0)
+    // void* kernel_stack_base;            // Base address of the kernel stack from the pool
+    // int32_t  kernel_stack_pool_index;
 };
 
 struct ProcessManagerState {

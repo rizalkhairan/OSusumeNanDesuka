@@ -5,6 +5,10 @@
 #include "header/stdlib/string.h"
 #include "header/cpu/gdt.h"
 
+// Kernel stack for each process
+// static uint8_t g_kernel_memory_pool[PROCESS_COUNT_MAX][KERNEL_STACK_SIZE];
+// static bool g_kernel_memory_pool_used[PROCESS_COUNT_MAX] = {false};
+
 struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX];
 struct ProcessManagerState process_manager_state = {
     .active_process_count = 0,
@@ -80,13 +84,13 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     new_pcb->metadata.pid = process_generate_new_pid();
     new_pcb->metadata.process_state = READY;
 
+    /* Memory allocation */
     struct PageDirectory* current_pd = paging_get_current_page_directory_addr();
     struct PageDirectory* new_pd = paging_create_new_page_directory();
     if (!new_pd) {
         retcode = PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY;
         goto exit_cleanup;
     }
-
     // Allocate memory for program
     if (!paging_allocate_user_page_frame(new_pd, request.buf)) {
         retcode = PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY;
@@ -104,6 +108,24 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
 
     new_pcb->memory.page_frame_used_count = 2;
     new_pcb->context.page_directory_virtual_addr = new_pd;
+    // Kernel stack allocation
+    // int32_t kernel_stack_index = -1;
+    // for (uint32_t i = 0; i < PROCESS_COUNT_MAX; i++) {
+    //     if (!g_kernel_memory_pool_used[i]) {
+    //         kernel_stack_index = i;
+    //         break;
+    //     }
+    // }
+    // if (kernel_stack_index == -1) {
+    //     paging_free_user_page_frame(new_pd, new_pcb->memory.virtual_addr_used[0]);
+    //     paging_free_user_page_frame(new_pd, new_pcb->memory.virtual_addr_used[1]);
+    //     retcode = PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY;
+    //     goto exit_cleanup;
+    // }
+    // new_pcb->kernel_stack_base = &g_kernel_memory_pool[kernel_stack_index][0];
+    // new_pcb->kernel_esp = (uint32_t)new_pcb->kernel_stack_base + KERNEL_STACK_SIZE;
+    // new_pcb->kernel_stack_pool_index = kernel_stack_index;
+    // g_kernel_memory_pool_used[kernel_stack_index] = true;
 
     // Switch to new page directory to load the program
     paging_use_page_directory(new_pd);
@@ -123,7 +145,7 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     new_pcb->context.cpu.segment.fs = 0x23;
     new_pcb->context.cpu.segment.gs = 0x23;
     
-    new_pcb->context.eip = (uint32_t)request.buf;
+    new_pcb->context.eip = (uint32_t)request.buf;//  <----------------------------------
     new_pcb->context.cpu.stack.ebp = 0xBFFFFFFC;
     new_pcb->context.cpu.stack.esp = 0xBFFFFFFC;
     

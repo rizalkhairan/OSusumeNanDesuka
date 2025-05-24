@@ -60,10 +60,7 @@ void main_interrupt_handler(struct InterruptFrame frame) {
             // struct Context ctx = {
             //     .cpu = frame.cpu,
             //     .eip = frame.int_stack.eip,
-            //     .cs = frame.int_stack.cs,
             //     .eflags = frame.int_stack.eflags,
-            //     .esp = frame.cpu.stack.esp,
-            //     .ss = current_running_pcb->context.ss,
             //     .page_directory_virtual_addr = current_running_pcb->context.page_directory_virtual_addr,
             // };
             // scheduler_save_context_to_current_running_pcb(ctx);
