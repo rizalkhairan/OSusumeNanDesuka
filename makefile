@@ -19,6 +19,7 @@ LFLAGS        = -T $(SOURCE_FOLDER)/linker.ld -melf_i386
 
 # Filesystem
 DISK_NAME      = storage
+bro: disk insert-shell run
 
 disk:
 	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M

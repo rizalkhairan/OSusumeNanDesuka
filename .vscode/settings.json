@@ -18,6 +18,7 @@
         "string.h": "c",
         "ext2.h": "c",
         "framebuffer.h": "c",
-        "bitset": "c"
+        "bitset": "c",
+        "random": "c"
     },
 }

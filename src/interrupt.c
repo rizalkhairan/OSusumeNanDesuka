@@ -179,6 +179,8 @@ void puts(char* buf, uint32_t count, uint8_t color) {
             ++r;
         }
     }
-
-    framebuffer_write(20, 0, count + 65, 0x2, 0xf);
+    InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
+    int linelen = line->length;
+    framebuffer_write(20, 0, count + 65, 0x2, 0x0);
+    framebuffer_write(21, 0, line->length + '0', 0x2, 0x0);
 }

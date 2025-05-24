@@ -40,8 +40,8 @@ void kernel_setup(void) {
 
 
     struct EXT2DriverRequest req = {
-        .name = "kusanagi",
-        .name_len = 8,
+        .name = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        .name_len = 64,
         .parent_inode = 2,
         .buffer_size = 8,
         .is_directory = true,
@@ -50,14 +50,24 @@ void kernel_setup(void) {
     uint32_t x = write(&req);
 
     struct EXT2DriverRequest req2 = {
-        .name = "yoisaki",
-        .name_len = 7,
+        .name = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbd",
+        .name_len = 64,
         .parent_inode = 4,
         .buffer_size = 8,
         .is_directory = true,
         .buf = {0},
     };
     uint32_t y = write(&req2);
+
+    struct EXT2DriverRequest reqbro = {
+        .name = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        .name_len = 64,
+        .parent_inode = 5,
+        .buffer_size = 8,
+        .is_directory = true,
+        .buf = {0},
+    };
+    uint32_t bro = write(&reqbro);
 
     struct EXT2DriverRequest req3 = {
         .name = "shinonome",

@@ -87,6 +87,8 @@ void terminal_initialize(){
 
 void write_path(){
     char result[2040+filepath_len];
+
+    // GET HEADER
     char* filepath = "OSusumeWaNanDesuka?:";
     InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
     get_absolute_path();
@@ -96,13 +98,18 @@ void write_path(){
     memcpy(result + 20, fullpath, fullpath_length);
     memcpy(result + 20 + fullpath_length, "$ ", 2);
 
-    filepath_len = 22 + fullpath_length;
-
+    // WRITE PATH
+    int row_before_path = (line->length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
     terminal_buffer.current_line_col = 0;
-    terminal_buffer.current_line_row += (line->length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
     syscall(6, result, 22 + fullpath_length, 0xB);
-    terminal_buffer.current_line_col = 22 + fullpath_length;
+    terminal_buffer.current_line_row += (22 + fullpath_length) / FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_col = (22 + fullpath_length) % FRAMEBUFFER_ROW_LENGTH;
+
+    get_absolute_path();
+    fullpath_length = get_absolute_path_length();
+    filepath_len = 22 + fullpath_length;
    
     terminal_buffer.cursor_row = terminal_buffer.current_line_row;
     terminal_buffer.cursor_col = terminal_buffer.current_line_col;
@@ -126,8 +133,8 @@ void terminal_handle_input(char c){
     if (terminal_buffer.cursor_row == terminal_buffer.current_line_row) {
         cursor_index = terminal_buffer.cursor_col - terminal_buffer.current_line_col;
     } else {
-        cursor_index = (terminal_buffer.cursor_row - terminal_buffer.current_line_row) * FRAMEBUFFER_ROW_LENGTH +
-                       terminal_buffer.cursor_col - filepath_len;
+        cursor_index = (terminal_buffer.cursor_row - terminal_buffer.current_line_row + (filepath_len / FRAMEBUFFER_ROW_LENGTH)) * FRAMEBUFFER_ROW_LENGTH +
+                       terminal_buffer.cursor_col - filepath_len - (filepath_len / FRAMEBUFFER_ROW_LENGTH > 0 ? 0 : 1);
     }
 
     switch ((unsigned char) c) {
@@ -207,8 +214,8 @@ void terminal_handle_input(char c){
             if (terminal_buffer.hist_length < MAX_HISTORY) {
                 InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
                 execute(line->buffer, line->length);
-                add_line_to_history(line);
                 write_path();
+                add_line_to_history(line);
             }
             break;
         case '\b':
@@ -567,10 +574,6 @@ void cd(const char* input, uint32_t length){
         memcpy(cwd_name, absolute_path[depth].name, absolute_path[depth].length);
         updateAbsolutePath();
     }
-    
-    get_absolute_path();
-    fullpath_length = get_absolute_path_length();
-    // filepath_len = 22 + fullpath_length;
 }
 
 void cat(const char* input, uint32_t length) {
@@ -643,7 +646,7 @@ void cat(const char* input, uint32_t length) {
     terminal_buffer.current_line_row += (retval + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
 }
-// --------------- comands/find ---------------
+// --------------- commands/find ---------------
 
 #define DIRECTORY_ENTRY_SEARCH_QUEUE_SIZE 1024
 
