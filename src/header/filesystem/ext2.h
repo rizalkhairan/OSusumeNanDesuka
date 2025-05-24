@@ -29,6 +29,9 @@ extern struct EXT2BlockGroupDescriptorTable bgdt;
 #define TRIPLY_INDIRECT_BLOCK_COUNT (SINGLY_INDIRECT_BLOCK_COUNT * SINGLY_INDIRECT_BLOCK_COUNT * SINGLY_INDIRECT_BLOCK_COUNT)
 
 
+#define MAX_NAME_LENGTH 255u
+
+
 /**
  * inodes constant 
  * - reference: https://www.nongnu.org/ext2-doc/ext2.html#inode-table
@@ -465,7 +468,7 @@ bool is_bitmap_set(struct BlockBuffer *bitmap, uint32_t bit);
  * @param bgd_index index of the block group descriptor
  * @return block number
  */
-static uint32_t find_free_in_bgd(uint32_t bgd_index);
+uint32_t find_free_in_bgd(uint32_t bgd_index);
 
 /**
  * @brief find an inode from an inode number
@@ -479,16 +482,24 @@ void read_inode(uint32_t inode_num, struct EXT2Inode *out);
 uint32_t find_free_anywhere(uint32_t bgd_index);
 
 // Check whether there's n blocks available to store data inside the disk
-bool exists_n_free_blocks(int n);
+bool exists_n_free_blocks(uint32_t n);
 
 /**
  * @brief allocate additional contiguous blocks for a node
  * @param node inode to allocate blocks for
  * @param preferred_bgd it is located at the node inode bgd
- * @param blocks_needed amount of blocks needed
  * @return first block address of the newly allocated blocks 
  */
-uint32_t allocate_additional_blocks(struct EXT2Inode *node, uint32_t preferred_bgd, uint32_t blocks_needed);
+uint32_t allocate_additional_block(struct EXT2Inode *node, uint32_t preferred_bgd);
+
+/**
+ * @brief insert a block into indirect blocks
+ * @param node inode to allocate blocks for
+ * @param preferred_bgd it is located at the node inode bgd
+ * @param inserting_block block to be inserted
+ * @return first block address of the newly allocated blocks 
+ */
+uint32_t allocate_additional_indirect_block(struct EXT2Inode *node, uint32_t preferred_bgd, uint32_t inserting_block, uint8_t depth);
 
 /**
  * @brief initialize directory entries for newly created directory
@@ -538,25 +549,10 @@ int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct E
  */
 bool correct_request_entry(struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 
-/**
- * @brief attempt to delete directory entry from a parent directory by leaving gaps in the directory entries
- * @param delete_request request containing the parent inode to be searched on
- * @param deleted_inode_number inode number of the deleted directory entry if succesfully deleted
- * @return 0: success, 1: not found, -1: unknown error
- */
-int8_t delete_directory_entry(struct EXT2DriverRequest* delete_request, struct EXT2Inode* parent, uint32_t* deleted_inode_number);
-
-/**
- * @brief check whether the entry is equal to the request
- * @param entry the directory entry
- * @param request the request
- * @return true if equal, false otherwise
- */
-bool correct_request_entry(struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
-
 bool mark_entry_in_block(uint32_t block_number, struct EXT2DirectoryEntry *entry, struct EXT2DriverRequest *request);
 
 void update_bgdt(void);
+void update_superblock(void);
 
 struct EXT2CopyRequest
 {

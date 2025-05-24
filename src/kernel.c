@@ -50,9 +50,9 @@ void kernel_setup(void) {
     uint32_t x = write(&req);
 
     struct EXT2DriverRequest req2 = {
-        .name = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbd",
-        .name_len = 64,
-        .parent_inode = 4,
+        .name = "yoisaki",
+        .name_len = 7,
+        .parent_inode = 3,
         .buffer_size = 8,
         .is_directory = true,
         .buf = {0},
