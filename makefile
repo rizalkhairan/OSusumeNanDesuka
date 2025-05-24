@@ -20,11 +20,7 @@ LFLAGS        = -T $(SOURCE_FOLDER)/linker.ld -melf_i386
 # Filesystem
 DISK_NAME      = storage
 bro: disk insert-shell run
-<<<<<<< HEAD
 brodeb: disk insert-shell debug
-=======
-
->>>>>>> 5567a6e (merge: master and scheduler)
 disk:
 	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M
 debug: all
