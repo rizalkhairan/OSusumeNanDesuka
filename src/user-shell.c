@@ -15,7 +15,7 @@ uint32_t cwd_inode = 2;
 char cwd_name[255];
 uint16_t cwd_name_len;
 uint32_t filepath_len = 22;
-static TerminalBuffer terminal_buffer;
+static InputBuffer terminal_buffer;
 
 Command command_table[] = {
     { "clear",  5},
@@ -78,17 +78,19 @@ void terminal_initialize(){
     terminal_buffer.current_line_col = filepath_len + 1; // will change depending on offset
     terminal_buffer.cursor_row = terminal_buffer.current_line_row;
     terminal_buffer.cursor_col = terminal_buffer.current_line_col;
-    TerminalLine* line = &terminal_buffer.history[0];
+    InputLine* line = &terminal_buffer.history[0];
     line->length = 0;
     
     syscall(9, terminal_buffer.cursor_row, terminal_buffer.cursor_col, 0);
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
 }
 
-void write_path(){
+void write_path(bool after_command){
     char result[2040+filepath_len];
+
+    // GET HEADER
     char* filepath = "OSusumeWaNanDesuka?:";
-    TerminalLine* line = &terminal_buffer.history[terminal_buffer.current_line];
+    InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
     get_absolute_path();
     fullpath_length = get_absolute_path_length();
     
@@ -96,13 +98,21 @@ void write_path(){
     memcpy(result + 20, fullpath, fullpath_length);
     memcpy(result + 20 + fullpath_length, "$ ", 2);
 
-    // filepath_len = 22 + fullpath_length;
-
+    // WRITE PATH
+    int row_before_path = 1;
+    if (after_command){
+        row_before_path  = (line->length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    } 
+    terminal_buffer.current_line_row += row_before_path; 
     terminal_buffer.current_line_col = 0;
-    terminal_buffer.current_line_row += (line->length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
     syscall(6, result, 22 + fullpath_length, 0xB);
-    terminal_buffer.current_line_col = 22 + fullpath_length;
+    terminal_buffer.current_line_row += (22 + fullpath_length) / FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_col = (22 + fullpath_length) % FRAMEBUFFER_ROW_LENGTH;
+
+    get_absolute_path();
+    fullpath_length = get_absolute_path_length();
+    filepath_len = 22 + fullpath_length;
    
     terminal_buffer.cursor_row = terminal_buffer.current_line_row;
     terminal_buffer.cursor_col = terminal_buffer.current_line_col;
@@ -111,31 +121,35 @@ void write_path(){
 }
 
 void redraw_current_line(){
-    TerminalLine line = terminal_buffer.history[terminal_buffer.current_line];
-
+    InputLine line = terminal_buffer.history[terminal_buffer.current_line];
+    
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-    syscall(6, &line.buffer, line.length, 0xF);
+    syscall(6, &line.buffer, line.length, 0xF); // redraw
 
-    syscall(9, terminal_buffer.cursor_row, terminal_buffer.cursor_col, 0);
+    syscall(9, terminal_buffer.cursor_row, terminal_buffer.cursor_col, 0); // setcursor
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
 }
 
 void terminal_handle_input(char c){
-    TerminalLine* line = &terminal_buffer.history[terminal_buffer.current_line];
+    InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
     int cursor_index;
     if (terminal_buffer.cursor_row == terminal_buffer.current_line_row) {
         cursor_index = terminal_buffer.cursor_col - terminal_buffer.current_line_col;
     } else {
         cursor_index = (terminal_buffer.cursor_row - terminal_buffer.current_line_row) * FRAMEBUFFER_ROW_LENGTH +
-                       terminal_buffer.cursor_col - filepath_len;
+                        terminal_buffer.cursor_col - (filepath_len % FRAMEBUFFER_ROW_LENGTH);
     }
 
     switch ((unsigned char) c) {
         case KEY_UP:
+            if (terminal_buffer.cursor_row >= FRAMEBUFFER_COL_LENGTH-1){
+                flush();
+                write_path(false);
+            }
             if (terminal_buffer.viewed_line > 0) {
                 terminal_buffer.viewed_line--;
-                TerminalLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
-                TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+                InputLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
+                InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
 
                 current->length = viewed->length;
                 for (int i = 0; i < viewed->length; i++) {
@@ -154,8 +168,8 @@ void terminal_handle_input(char c){
                 terminal_buffer.viewed_line++;
                 
                 if (terminal_buffer.viewed_line < terminal_buffer.current_line) {
-                    TerminalLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
-                    TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+                    InputLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
+                    InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
         
                     current->length = viewed->length;
                     for (int i = 0; i < viewed->length; i++) {
@@ -167,7 +181,7 @@ void terminal_handle_input(char c){
                     terminal_buffer.cursor_row = max_row;
                     terminal_buffer.cursor_col = max_col;
                 } else {
-                    TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+                    InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
                     current->length = 0;
         
                     terminal_buffer.cursor_row = terminal_buffer.current_line_row;
@@ -205,10 +219,19 @@ void terminal_handle_input(char c){
             break;
         case '\n':
             if (terminal_buffer.hist_length < MAX_HISTORY) {
-                TerminalLine* line = &terminal_buffer.history[terminal_buffer.current_line];
-                execute(line->buffer, line->length);
+                bool flushed = false;
+                if (terminal_buffer.cursor_row >= FRAMEBUFFER_COL_LENGTH-1){
+                    flush();
+                    flushed = true;
+                }
+                InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
+                bool res = execute(line->buffer, line->length);
+                if (flushed) {
+                    write_path(false);
+                } else {
+                    write_path(res);
+                }
                 add_line_to_history(line);
-                write_path();
             }
             break;
         case '\b':
@@ -230,10 +253,24 @@ void terminal_handle_input(char c){
             break;
         default:
             if (line->length < MAX_LINE_LENGTH){
-                terminal_line_insert_char(line, c, cursor_index);
-                if (++terminal_buffer.cursor_col >= FRAMEBUFFER_ROW_LENGTH){
-                    terminal_buffer.cursor_col = 0;
-                    terminal_buffer.cursor_row++;
+                if (terminal_buffer.cursor_row >= FRAMEBUFFER_COL_LENGTH-1){
+                    flush();
+                    write_path(false);
+
+                    InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+                    int max_row = terminal_buffer.current_line_row + ((terminal_buffer.current_line_col + current->length) / FRAMEBUFFER_ROW_LENGTH);
+                    int max_col = (terminal_buffer.current_line_col + current->length) % FRAMEBUFFER_ROW_LENGTH;
+                    terminal_buffer.cursor_row = max_row;
+                    terminal_buffer.cursor_col = max_col;
+                } else {
+                    if (cursor_index > line->length){
+                        cursor_index--;
+                    }
+                    terminal_line_insert_char(line, c, cursor_index);
+                    if (++terminal_buffer.cursor_col >= FRAMEBUFFER_ROW_LENGTH){
+                        terminal_buffer.cursor_col = 0;
+                        terminal_buffer.cursor_row++;
+                    }
                 }
             }
             break;
@@ -243,7 +280,7 @@ void terminal_handle_input(char c){
 }
 
 void add_line_to_history(){
-    TerminalLine* current = &terminal_buffer.history[terminal_buffer.current_line];
+    InputLine* current = &terminal_buffer.history[terminal_buffer.current_line];
     if (current->length == 0){
         return;
     }
@@ -257,7 +294,7 @@ void add_line_to_history(){
     }
 
     if (duplicate_index != -1) {
-        TerminalLine temp = terminal_buffer.history[duplicate_index];
+        InputLine temp = terminal_buffer.history[duplicate_index];
 
         for (int i = duplicate_index; i < terminal_buffer.current_line - 1; i++) {
             terminal_buffer.history[i] = terminal_buffer.history[i + 1];
@@ -274,7 +311,7 @@ void add_line_to_history(){
     terminal_buffer.history[terminal_buffer.current_line].length = 0;
 }
 
-bool is_same_line(TerminalLine l1, TerminalLine l2){
+bool is_same_line(InputLine l1, InputLine l2){
     if (l1.length != l2.length){
         return false;
     } 
@@ -288,7 +325,7 @@ bool is_same_line(TerminalLine l1, TerminalLine l2){
     return true;
 }
 
-void terminal_line_insert_char(TerminalLine* line, char c, int index) {
+void terminal_line_insert_char(InputLine* line, char c, int index) {
     if (line->length >= MAX_LINE_LENGTH - 1) return; 
     if (index < 0 || index > line->length) return;  
 
@@ -300,7 +337,7 @@ void terminal_line_insert_char(TerminalLine* line, char c, int index) {
     line->length++;
 }
 
-void terminal_line_delete_char(TerminalLine* line, int index) {
+void terminal_line_delete_char(InputLine* line, int index) {
     if (index < 0 || index >= line->length) return;
 
     for (int i = index; i < line->length - 1; i++) {
@@ -461,7 +498,7 @@ void updateAbsolutePath(){
     }
 }
 
-void execute(const char* input, uint32_t length){
+bool execute(const char* input, uint32_t length){
     ParsedInput args = parse_input_n(input, length, 2);
     if(args.argc==0){
         return;
@@ -483,20 +520,31 @@ void execute(const char* input, uint32_t length){
         else if(i==6){mkdir(args.argv[1].buffer, args.argv[1].length);}
         else if(i==7){rm(args.argv[1].buffer, args.argv[1].length);}
         else if(i==8){find(args.argv[1].buffer, args.argv[1].length);}
+        return true;
     } else{
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "command not found", 17, 0x4);
+        return false;
     }
 }
 
 
 // --------------- commands ---------------
+void flush(){
+    terminal_buffer.current_line_col = 0;
+    terminal_buffer.current_line_row = -1; // TODO: VALIDASI TEMBUS LAYAR
+    syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+    syscall(8,0,0,0);
+}
+
 void clear(const char* input, uint32_t length){
     if(length!=0){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "invalid arg", 11, 0x4);
         return;
@@ -518,7 +566,8 @@ void cd(const char* input, uint32_t length){
     ParsedInput args = parse_input_all(input, length, ' ');
     if(args.argc!=1){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+         int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "invalid arg", 11, 0x4);
         return; // error message?
@@ -535,7 +584,8 @@ void cd(const char* input, uint32_t length){
 
     if(retval!=0){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+         int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "invalid arg2", 12, 0x4);
     } else{
@@ -567,17 +617,14 @@ void cd(const char* input, uint32_t length){
         memcpy(cwd_name, absolute_path[depth].name, absolute_path[depth].length);
         updateAbsolutePath();
     }
-    
-    get_absolute_path();
-    fullpath_length = get_absolute_path_length();
-    // filepath_len = 22 + fullpath_length;
 }
 
 void cat(const char* input, uint32_t length) {
     ParsedInput args = parse_input_all(input, length, ' ');
     if(args.argc!=1){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+         int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "command not found", 17, 0x4);
         return;
@@ -594,13 +641,15 @@ void cat(const char* input, uint32_t length) {
     syscall(0, &request, &is_file_exists, 0);
     if(is_file_exists != 0) {
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (args.argv[0].length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+         int row_before_path = (args.argv[0].length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "File not found", 14, 0x4);
         return;
     }
     terminal_buffer.current_line_col = 0;
-    terminal_buffer.current_line_row += (args.argv[0].length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+    int row_before_path = (args.argv[0].length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
     syscall(6, request.buf, request.buffer_size, 0xE);
     // syscall(6, args.argv[0].buffer, args.argv[0].length, 0xF);
@@ -631,7 +680,8 @@ void cat(const char* input, uint32_t length) {
     syscall(12, &request2, &new, 0);
     if (new.inode == 0) {
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "unknown error", 13, 0x4);
         return;
@@ -640,10 +690,11 @@ void cat(const char* input, uint32_t length) {
     uint8_t *point = &retval;
     syscall(11, &new.inode, point, 0);
 
-    terminal_buffer.current_line_row += (retval + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+    row_before_path = (retval + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
 }
-// --------------- comands/find ---------------
+// --------------- commands/find ---------------
 
 #define DIRECTORY_ENTRY_SEARCH_QUEUE_SIZE 1024
 
@@ -727,7 +778,8 @@ void find_recurse(char *path, uint32_t* path_len, uint32_t inode, char *target, 
            uint32_t length = *path_len + 1 + entry->name_len;
            
            terminal_buffer.current_line_col = 0;
-           terminal_buffer.current_line_row += (entry->name_len + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+           int row_before_path = (entry->name_len + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
            syscall(10, (uint32_t)&terminal_buffer, 0, 0);
            syscall(6, result, length, 0x2);
         }
@@ -782,7 +834,8 @@ void find(const char *input, uint32_t length) {
 void ls(const char* input, uint32_t length) {
     if(length!=0){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "command not found", 17, 0x4);
         return;
@@ -807,7 +860,8 @@ void ls(const char* input, uint32_t length) {
         if(entry->inode != -1) {
             char *name = get_entry_name_shell(entry);
             terminal_buffer.current_line_col = 0;
-            terminal_buffer.current_line_row += (entry->name_len + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+            int row_before_path = (entry->name_len + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
             syscall(10, (uint32_t)&terminal_buffer, 0, 0);
             syscall(6, (uint32_t)name, entry->name_len, 0x7);
         }
@@ -816,14 +870,16 @@ void ls(const char* input, uint32_t length) {
             if(entry->inode != -1) {
                 char *name = get_entry_name_shell(entry);
                 terminal_buffer.current_line_col = 0;
-                terminal_buffer.current_line_row += (entry->name_len + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+                int row_before_path = (entry->name_len + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
                 syscall(10, (uint32_t)&terminal_buffer, 0, 0);
                 syscall(6, (uint32_t)name, entry->name_len, 0x7);
             }
         }
     } else {
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (2 + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (2 + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "unable to read directory", 24, 0x4);
     }
@@ -833,7 +889,8 @@ void mkdir(const char* input, uint32_t length) {
     ParsedInput args = parse_input_all(input, length, ' ');
     if(args.argc != 1) {
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "Usage: mkdir <directory_name>", 29, 0x2);
         return;
@@ -854,7 +911,8 @@ void mkdir(const char* input, uint32_t length) {
 
     // Check result
     terminal_buffer.current_line_col = 0;
-    terminal_buffer.current_line_row += (args.argv[0].length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    int row_before_path = (args.argv[0].length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
     syscall(10, (uint32_t)&terminal_buffer, 0, 0);
     
     if (result != 0) {
@@ -868,9 +926,10 @@ void rm(const char* input, uint32_t length) {
     ParsedInput args = parse_input_all(input, length, ' ');
     if(args.argc != 1) {
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+    terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, "Usage: rm <file_or_directory_name>", 33, 0x2);
+        syscall(6, "Usage: rm <file_or_directory_name>", 34, 0x2);
         return;
     }
     
@@ -896,7 +955,8 @@ void rm(const char* input, uint32_t length) {
         
         if (entry.inode == 0) {
             terminal_buffer.current_line_col = 0;
-            terminal_buffer.current_line_row += (args.argv[0].length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            int row_before_path = (args.argv[0].length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path; 
             syscall(10, (uint32_t)&terminal_buffer, 0, 0);
             syscall(6, "File or directory not found", 27, 0x4);
             return;
@@ -911,7 +971,8 @@ void rm(const char* input, uint32_t length) {
         int8_t result = delete_recur_dir(cwd_inode, args.argv[0].buffer);
         
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (args.argv[0].length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        int row_before_path = (args.argv[0].length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         
         syscall(6, "Trying to remove directory...", 29, 0xE);
@@ -930,7 +991,8 @@ void rm(const char* input, uint32_t length) {
         syscall(3, &delete_request, &result, 0);
 
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (args.argv[0].length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        int row_before_path = (args.argv[0].length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);    
         
         syscall(6, "Trying to remove file...", 24, 0xE);
@@ -1030,7 +1092,8 @@ void cp(const char* input, uint32_t length){
     ParsedInput args = parse_input_all(input, length, ' ');
     if(args.argc!=2){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "command not found", 17, 0x2);
         return;
@@ -1045,37 +1108,44 @@ void cp(const char* input, uint32_t length){
     syscall(14, &copy, &retval, 0);
     if(retval==1){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "source not found", 16, 0x2);
     } else if(retval==2){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "destination not found", 21, 0x2);
     } else if(retval==3){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "invalid parent", 14, 0x2);
     } else if(retval==4){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "failed to read source", 21, 0x2);
     } else if(retval==5){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "failed to write to destination", 30, 0x2);
     } else if(retval==6){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "directory child read/write failed", 33, 0x2);
     } else if(retval==-1){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "unknown error", 13, 0x2);
     }
@@ -1085,7 +1155,8 @@ void mv(const char* input, uint32_t length){
     ParsedInput args = parse_input_all(input, length, ' ');
     if(args.argc!=2){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "command not found", 17, 0x2);
         return;
@@ -1100,37 +1171,44 @@ void mv(const char* input, uint32_t length){
     syscall(15, &copy, &retval, 0);
     if(retval==1){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "source not found", 16, 0x2);
     } else if(retval==2){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "destination not found", 21, 0x2);
     } else if(retval==3){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "invalid parent", 14, 0x2);
     } else if(retval==4){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "failed to read source", 21, 0x2);
     } else if(retval==5){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "failed to write to destination", 30, 0x2);
     } else if(retval==6){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "directory child read/write failed", 33, 0x2);
     } else if(retval==-1){
         terminal_buffer.current_line_col = 0;
-        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+            terminal_buffer.current_line_row += row_before_path;
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "unknown error", 13, 0x2);
     }

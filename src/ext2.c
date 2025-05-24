@@ -1087,6 +1087,18 @@ void update_superblock(void){
     write_blocks(&b, 1, 1);
 }
 
+void get_entry_pure_name(void *entry, char *purename) {
+    struct EXT2DirectoryEntry *dir_entry = (struct EXT2DirectoryEntry *)entry;
+    if (dir_entry->inode == 0 || dir_entry->name_len == 0 || dir_entry->name_len > 255) {
+        purename[0] = '\0';
+        return;
+    }
+
+    char* name = (char*)(entry + sizeof(struct EXT2DirectoryEntry));
+    memcpy(purename, name, dir_entry->name_len);
+    purename[dir_entry->name_len] = '\0';
+}
+
 /*
 0: Exists
 1: Exists file
@@ -1335,7 +1347,8 @@ int8_t recursive_move_dir_files(uint32_t src_parent, char* src_name, uint32_t sr
     size_t current_dir_entry = 0;
     while (true){
         uint32_t cur_inode = entry->inode;
-        char* cur_name = get_entry_name(entry);
+        char cur_name[256];
+        get_entry_pure_name(entry, cur_name);
         if (!memcmp(cur_name, ".", 1) || !memcmp(cur_name, "..", 2)) {
             struct EXT2DirectoryEntry* t_entry;
             t_entry = get_next_directory_entry(entry);
@@ -1467,7 +1480,8 @@ int8_t delete_recur_dir(uint32_t parent_inode, char* cur_dir_name){
 
     while (true){
         uint32_t cur_inode = dir_entry->inode;
-        char* cur_name = get_entry_name(dir_entry);
+        char cur_name[256];
+        get_entry_pure_name(dir_entry, cur_name);
         if (!memcmp(cur_name, ".", 1) || !memcmp(cur_name, "..", 2)) {
             struct EXT2DirectoryEntry* t_entry;
             t_entry = get_next_directory_entry(dir_entry);
