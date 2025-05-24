@@ -1246,13 +1246,15 @@ int8_t copy_cp(struct EXT2CopyRequest* copy_request){
         if (read_stat != 0) return 4; // read failed
     }
 
+    struct EXT2Inode src_node;
+    read_inode(src_inode, &src_node);
     // 2. Write to destination
     struct EXT2DriverRequest write_req = {
         .buf = buffer,
         .name = (char *)final_name,
         .name_len = final_name_len,
         .parent_inode = dest_inode,
-        .buffer_size = read_req.buffer_size,
+        .buffer_size = src_node.i_size,
         .is_directory = src_res == 0
     };
 
@@ -1381,13 +1383,15 @@ int8_t recursive_move_dir_files(uint32_t src_parent, char* src_name, uint32_t sr
             };
             int8_t read_res = read(entry_req);
 
+            struct EXT2Inode cur_node;
+            read_inode(cur_inode, &cur_node);
             // WRITE
             struct EXT2DriverRequest write_req = {
                 .buf = entryBuffer,
                 .name = cur_name,
                 .name_len = entry_length,
                 .parent_inode = dest_dir_inode,
-                .buffer_size = BLOCK_SIZE * 16,
+                .buffer_size = cur_node.i_size,
                 .is_directory = false
             };
             int8_t write_res = write(&write_req);
