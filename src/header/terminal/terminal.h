@@ -27,7 +27,7 @@ typedef struct {
 static InputBuffer terminal_buffer;
 
 void terminal_initialize();
-void write_path();
+void write_path(bool after_command);
 void redraw_current_line();
 void terminal_handle_input(char);
 void add_line_to_history();
@@ -78,7 +78,7 @@ void updateAbsolutePath();
 int8_t delete_recur_dir(uint32_t parent_inode, char* cur_dir_name);
 
 // --------------- commands ---------------
-void execute(const char* line, uint32_t length);
+bool execute(const char* line, uint32_t length);
 void clear(const char* input, uint32_t length);
 void cd(const char* input, uint32_t length);
 void cat(const char* input, uint32_t length);
