@@ -142,6 +142,10 @@ void terminal_handle_input(char c){
 
     switch ((unsigned char) c) {
         case KEY_UP:
+            if (terminal_buffer.cursor_row >= FRAMEBUFFER_COL_LENGTH-1){
+                flush();
+                write_path(false);
+            }
             if (terminal_buffer.viewed_line > 0) {
                 terminal_buffer.viewed_line--;
                 InputLine* viewed = &terminal_buffer.history[terminal_buffer.viewed_line];
@@ -215,9 +219,18 @@ void terminal_handle_input(char c){
             break;
         case '\n':
             if (terminal_buffer.hist_length < MAX_HISTORY) {
+                bool flushed = false;
+                if (terminal_buffer.cursor_row >= FRAMEBUFFER_COL_LENGTH-1){
+                    flush();
+                    flushed = true;
+                }
                 InputLine* line = &terminal_buffer.history[terminal_buffer.current_line];
                 bool res = execute(line->buffer, line->length);
-                write_path(res);
+                if (flushed) {
+                    write_path(false);
+                } else {
+                    write_path(res);
+                }
                 add_line_to_history(line);
             }
             break;
@@ -240,6 +253,10 @@ void terminal_handle_input(char c){
             break;
         default:
             if (line->length < MAX_LINE_LENGTH){
+                if (terminal_buffer.cursor_row >= FRAMEBUFFER_COL_LENGTH-1){
+                    flush();
+                    write_path(false);
+                }
                 terminal_line_insert_char(line, c, cursor_index);
                 if (++terminal_buffer.cursor_col >= FRAMEBUFFER_ROW_LENGTH){
                     terminal_buffer.cursor_col = 0;
@@ -506,10 +523,17 @@ bool execute(const char* input, uint32_t length){
 
 
 // --------------- commands ---------------
+void flush(){
+    terminal_buffer.current_line_col = 0;
+    terminal_buffer.current_line_row = -1; // TODO: VALIDASI TEMBUS LAYAR
+    syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+    syscall(8,0,0,0);
+}
+
 void clear(const char* input, uint32_t length){
     if(length!=0){
         terminal_buffer.current_line_col = 0;
-         int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
         terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "invalid arg", 11, 0x4);
@@ -895,7 +919,7 @@ void rm(const char* input, uint32_t length) {
         int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
     terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, "Usage: rm <file_or_directory_name>", 33, 0x2);
+        syscall(6, "Usage: rm <file_or_directory_name>", 34, 0x2);
         return;
     }
     
