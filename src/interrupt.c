@@ -6,9 +6,8 @@
 #include "header/text/framebuffer.h"
 #include "header/terminal/terminal.h"
 #include "header/process/scheduler.h"
-#include "header/process/process.h"
-#include "header/stdlib/string.h"
-static TerminalBuffer terminal_buffer;
+
+static InputBuffer terminal_buffer;
 
 void io_wait(void) {
     out(0x80, 0);
@@ -57,18 +56,18 @@ void main_interrupt_handler(struct InterruptFrame frame) {
             break;
         case PIC1_OFFSET + IRQ_TIMER:
             pic_ack(IRQ_TIMER);
-            // struct ProcessControlBlock* current_running_pcb = process_get_current_running_pcb_pointer();
-            // struct Context ctx = {
-            //     .cpu = frame.cpu,
-            //     .eip = frame.int_stack.eip,
-            //     .cs = frame.int_stack.cs,
-            //     .eflags = frame.int_stack.eflags,
-            //     .esp = frame.cpu.stack.esp,
-            //     .ss = current_running_pcb->context.ss,
-            //     .page_directory_virtual_addr = current_running_pcb->context.page_directory_virtual_addr,
-            // };
-            // scheduler_save_context_to_current_running_pcb(ctx);
-            // scheduler_switch_to_next_process();
+            struct ProcessControlBlock* current_running_pcb = process_get_current_running_pcb_pointer();
+            struct Context ctx = {
+                .cpu = frame.cpu,
+                .eip = frame.int_stack.eip,
+                .eflags = frame.int_stack.eflags,
+                .page_directory_virtual_addr = current_running_pcb->context.page_directory_virtual_addr,
+            };
+            if (current_running_pcb->metadata.process_state == NEW) {
+                ctx = current_running_pcb->context;
+            }
+            scheduler_save_context_to_current_running_pcb(ctx);
+            scheduler_switch_to_next_process();
             break;
         case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
@@ -148,7 +147,7 @@ void syscall(struct InterruptFrame frame) {
             framebuffer_set_cursor((uint8_t) frame.cpu.general.ebx, (uint8_t) frame.cpu.general.ecx);
             break;
         case 10:
-            TerminalBuffer* src = (TerminalBuffer*) frame.cpu.general.ebx;
+            InputBuffer* src = (InputBuffer*) frame.cpu.general.ebx;
             terminal_buffer = *src;
             break;
         case 11:

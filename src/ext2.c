@@ -387,6 +387,7 @@ int8_t delete(struct EXT2DriverRequest request) {
     deallocate_node(deleted_inode_number);
     update_bgdt();
     update_superblock();
+    return 0;
 }
 
 /* =============================== MEMORY ==========================================*/
@@ -424,122 +425,20 @@ void deallocate_node(uint32_t inode_num) {
     struct BlockBuffer bitmap;
     uint32_t bgd_index = inode_to_bgd(inode_num);
     uint32_t last_bgd_idx = bgd_index;
-    
-    // Read the block bitmap for the BGD containing this inode
     read_blocks(&bitmap, bgdt.table[bgd_index].bg_block_bitmap, 1);
     
-    // Free direct blocks
-    for (int i = 0; i < 12; i++) {
-        if (node.i_block[i] == 0) continue;
-        
-        uint32_t block_bgd = node.i_block[i] / BLOCKS_PER_GROUP;
-        if (block_bgd != last_bgd_idx) {
-            // Write current bitmap and load the new one
-            write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-            read_blocks(&bitmap, bgdt.table[block_bgd].bg_block_bitmap, 1);
-            last_bgd_idx = block_bgd;
-        }
-        
-        // Mark block as free in bitmap
-        uint32_t block_in_group = node.i_block[i] % BLOCKS_PER_GROUP;
-        set_bitmap_bit(&bitmap, block_in_group, false);
-        
-        // Update block count
-        bgdt.table[block_bgd].bg_free_blocks_count++;
+    // Deallocate the blocks
+    for (uint8_t i = 0; i < 15; i++) {
+        if (node.i_block[i] == 0) break;
+        uint32_t block = node.i_block[i];
         node.i_block[i] = 0;
+        if (i < DIRECT_BLOCK_COUNT) {
+            deallocate_block(&block, 1, &bitmap, 0, &last_bgd_idx, true);
+        } else {
+            deallocate_block(&block, 1, &bitmap, 1 + i - DIRECT_BLOCK_COUNT, &last_bgd_idx, true);
+        }
     }
-    
-    // Free singly indirect blocks
-    if (node.i_block[12] != 0) {
-        uint32_t indirect_blocks[BLOCK_SIZE / sizeof(uint32_t)];
-        read_blocks(indirect_blocks, node.i_block[12], 1);
-        
-        // Free blocks pointed to by the indirect block
-        for (uint32_t i = 0; i < BLOCK_SIZE / sizeof(uint32_t); i++) {
-            if (indirect_blocks[i] == 0) continue;
-            
-            uint32_t block_bgd = indirect_blocks[i] / BLOCKS_PER_GROUP;
-            if (block_bgd != last_bgd_idx) {
-                write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-                read_blocks(&bitmap, bgdt.table[block_bgd].bg_block_bitmap, 1);
-                last_bgd_idx = block_bgd;
-            }
-            
-            uint32_t block_in_group = indirect_blocks[i] % BLOCKS_PER_GROUP;
-            set_bitmap_bit(&bitmap, block_in_group, false);
-            bgdt.table[block_bgd].bg_free_blocks_count++;
-        }
-        
-        // Free the indirect block itself
-        uint32_t ind_bgd = node.i_block[12] / BLOCKS_PER_GROUP;
-        if (ind_bgd != last_bgd_idx) {
-            write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-            read_blocks(&bitmap, bgdt.table[ind_bgd].bg_block_bitmap, 1);
-            last_bgd_idx = ind_bgd;
-        }
-        
-        uint32_t ind_block_in_group = node.i_block[12] % BLOCKS_PER_GROUP;
-        set_bitmap_bit(&bitmap, ind_block_in_group, false);
-        bgdt.table[ind_bgd].bg_free_blocks_count++;
-        node.i_block[12] = 0;
-    }
-    
-    // Free doubly indirect blocks
-    if (node.i_block[13] != 0) {
-        uint32_t dbl_indirect_blocks[BLOCK_SIZE / sizeof(uint32_t)];
-        read_blocks(dbl_indirect_blocks, node.i_block[13], 1);
-        
-        for (uint32_t i = 0; i < BLOCK_SIZE / sizeof(uint32_t); i++) {
-            if (dbl_indirect_blocks[i] == 0) continue;
-            
-            uint32_t indirect_blocks[BLOCK_SIZE / sizeof(uint32_t)];
-            read_blocks(indirect_blocks, dbl_indirect_blocks[i], 1);
-            
-            // Free blocks pointed to by this indirect block
-            for (uint32_t j = 0; j < BLOCK_SIZE / sizeof(uint32_t); j++) {
-                if (indirect_blocks[j] == 0) continue;
-                
-                uint32_t block_bgd = indirect_blocks[j] / BLOCKS_PER_GROUP;
-                if (block_bgd != last_bgd_idx) {
-                    write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-                    read_blocks(&bitmap, bgdt.table[block_bgd].bg_block_bitmap, 1);
-                    last_bgd_idx = block_bgd;
-                }
-                
-                uint32_t block_in_group = indirect_blocks[j] % BLOCKS_PER_GROUP;
-                set_bitmap_bit(&bitmap, block_in_group, false);
-                bgdt.table[block_bgd].bg_free_blocks_count++;
-            }
-            
-            // Free the indirect block
-            uint32_t ind_bgd = dbl_indirect_blocks[i] / BLOCKS_PER_GROUP;
-            if (ind_bgd != last_bgd_idx) {
-                write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-                read_blocks(&bitmap, bgdt.table[ind_bgd].bg_block_bitmap, 1);
-                last_bgd_idx = ind_bgd;
-            }
-            
-            uint32_t ind_block_in_group = dbl_indirect_blocks[i] % BLOCKS_PER_GROUP;
-            set_bitmap_bit(&bitmap, ind_block_in_group, false);
-            bgdt.table[ind_bgd].bg_free_blocks_count++;
-        }
-        
-        // Free the doubly indirect block itself
-        uint32_t dbl_bgd = node.i_block[13] / BLOCKS_PER_GROUP;
-        if (dbl_bgd != last_bgd_idx) {
-            write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
-            read_blocks(&bitmap, bgdt.table[dbl_bgd].bg_block_bitmap, 1);
-            last_bgd_idx = dbl_bgd;
-        }
-        
-        uint32_t dbl_block_in_group = node.i_block[13] % BLOCKS_PER_GROUP;
-        set_bitmap_bit(&bitmap, dbl_block_in_group, false);
-        bgdt.table[dbl_bgd].bg_free_blocks_count++;
-        node.i_block[13] = 0;
-    }
-    
-    // Write the last bitmap we modified
-    write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1);
+    write_blocks(&bitmap, bgdt.table[last_bgd_idx].bg_block_bitmap, 1); // Lastly flush the last bitmap
     
     // Mark inode as free in inode bitmap
     uint32_t inode_local = inode_to_local(inode_num);
@@ -547,21 +446,12 @@ void deallocate_node(uint32_t inode_num) {
     set_bitmap_bit(&bitmap, inode_local, false);
     write_blocks(&bitmap, bgdt.table[bgd_index].bg_inode_bitmap, 1);
     
-    // Update inode count in BGD
+    // Update counter metadata
     bgdt.table[bgd_index].bg_free_inodes_count++;
-    
-    // If it was a directory, update directory count
+    sb.s_free_inodes_count++;
     if ((node.i_mode & 0xF000) == EXT2_S_IFDIR) {
         bgdt.table[bgd_index].bg_used_dirs_count--;
     }
-    
-    // Update the superblock's counts
-    sb.s_free_blocks_count++;
-    sb.s_free_inodes_count++;
-    
-    // Write BGD and superblock
-    write_blocks(&bgdt, 2, 1);
-    write_blocks(&sb, 1, 1);
 }
 
 
@@ -587,20 +477,16 @@ void deallocate_blocks(void *loc, uint32_t blocks) {
 }
 
 // Recursive block deallocator
-uint32_t deallocate_block(uint32_t *locations, uint32_t blocks,
-                          struct BlockBuffer *bitmap, uint32_t depth,
-                          uint32_t *last_bgd, bool bgd_loaded) {
-
+uint32_t deallocate_block(uint32_t *locations, uint32_t blocks, struct BlockBuffer *bitmap, uint32_t depth, uint32_t *last_bgd, bool bgd_loaded) {
     if (!locations || !bitmap || !last_bgd) return *last_bgd;
+
     for (uint32_t i = 0; i < blocks; i++) {
         if (locations[i] == 0) continue;
 
         if (depth > 0) {
-            uint32_t indirect_blocks[BLOCK_SIZE / sizeof(uint32_t)];
-            read_blocks(indirect_blocks, locations[i], 1);
-
-            deallocate_block(indirect_blocks, BLOCK_SIZE / sizeof(uint32_t),
-                             bitmap, depth - 1, last_bgd, false);
+            struct BlockBuffer indirect_blocks;
+            read_blocks(&indirect_blocks, locations[i], 1);
+            deallocate_block((uint32_t *)indirect_blocks.buf, BLOCK_SIZE / sizeof(uint32_t), bitmap, depth - 1, last_bgd, true);
         }
 
         uint32_t bgd_index = locations[i] / BLOCKS_PER_GROUP;
@@ -611,13 +497,9 @@ uint32_t deallocate_block(uint32_t *locations, uint32_t blocks,
             read_blocks(bitmap, bgdt.table[bgd_index].bg_block_bitmap, 1);
             *last_bgd = bgd_index;
         }
-
         set_bitmap_bit(bitmap, block_in_group, false);
-        locations[i] = 0;
-    }
-
-    if (!bgd_loaded) {
-        write_blocks(bitmap, bgdt.table[*last_bgd].bg_block_bitmap, 1);
+        bgdt.table[bgd_index].bg_free_blocks_count++;
+        sb.s_free_blocks_count++;
     }
 
     return *last_bgd;
@@ -1206,6 +1088,18 @@ void update_superblock(void){
     write_blocks(&b, 1, 1);
 }
 
+void get_entry_pure_name(void *entry, char *purename) {
+    struct EXT2DirectoryEntry *dir_entry = (struct EXT2DirectoryEntry *)entry;
+    if (dir_entry->inode == 0 || dir_entry->name_len == 0 || dir_entry->name_len > 255) {
+        purename[0] = '\0';
+        return;
+    }
+
+    char* name = (char*)(entry + sizeof(struct EXT2DirectoryEntry));
+    memcpy(purename, name, dir_entry->name_len);
+    purename[dir_entry->name_len] = '\0';
+}
+
 /*
 0: Exists
 1: Exists file
@@ -1214,7 +1108,7 @@ void update_superblock(void){
 -1: Unknown error
  */
 int8_t exist_ext2(uint32_t parent_inode, const char *path, uint32_t *res_inode) {
-    char temp_path[256];
+    char temp_path[512];
     size_t len = 0;
     while (path[len] != '\0') len++;
 
@@ -1224,8 +1118,8 @@ int8_t exist_ext2(uint32_t parent_inode, const char *path, uint32_t *res_inode) 
     size_t i = 0;
 
     while (i < len) {
-        char token[64];
-        for (int i=0; i < 64; i++){
+        char token[256];
+        for (int i=0; i < 256; i++){
             token[i] = 0;
         }
         size_t j = 0;
@@ -1297,9 +1191,9 @@ int8_t exist_ext2(uint32_t parent_inode, const char *path, uint32_t *res_inode) 
 -1: Unknown error
  */
 int8_t copy_cp(struct EXT2CopyRequest* copy_request){
-    char dest_parent[256], dest_leaf[64];
+    char dest_parent[512], dest_leaf[256];
     split_path(copy_request->destination, dest_parent, dest_leaf);
-    char src_parent[256], src_leaf[64];
+    char src_parent[512], src_leaf[256];
     split_path(copy_request->source, src_parent, src_leaf);
 
     // Check if source exists 
@@ -1352,13 +1246,15 @@ int8_t copy_cp(struct EXT2CopyRequest* copy_request){
         if (read_stat != 0) return 4; // read failed
     }
 
+    struct EXT2Inode src_node;
+    read_inode(src_inode, &src_node);
     // 2. Write to destination
     struct EXT2DriverRequest write_req = {
         .buf = buffer,
         .name = (char *)final_name,
         .name_len = final_name_len,
         .parent_inode = dest_inode,
-        .buffer_size = read_req.buffer_size,
+        .buffer_size = src_node.i_size,
         .is_directory = src_res == 0
     };
 
@@ -1396,7 +1292,7 @@ int8_t move_mv(struct EXT2CopyRequest* copy_request){
     int8_t copy_res = copy_cp(copy_request);
     if (copy_res != 0) return copy_res;
     
-    char src_parent[256], src_leaf[64];
+    char src_parent[512], src_leaf[256];
     split_path(copy_request->source, src_parent, src_leaf);
     size_t src_leaf_len = 0;
     while (src_leaf[src_leaf_len] != '\0') src_leaf_len++;
@@ -1454,7 +1350,8 @@ int8_t recursive_move_dir_files(uint32_t src_parent, char* src_name, uint32_t sr
     size_t current_dir_entry = 0;
     while (true){
         uint32_t cur_inode = entry->inode;
-        char* cur_name = get_entry_name(entry);
+        char cur_name[256];
+        get_entry_pure_name(entry, cur_name);
         if (!memcmp(cur_name, ".", 1) || !memcmp(cur_name, "..", 2)) {
             struct EXT2DirectoryEntry* t_entry;
             t_entry = get_next_directory_entry(entry);
@@ -1474,24 +1371,27 @@ int8_t recursive_move_dir_files(uint32_t src_parent, char* src_name, uint32_t sr
 
         } else if (entry->file_type == EXT2_FT_REG_FILE){
             // READ
+            int entry_length = entry->name_len;
             uint8_t entryBuffer[BLOCK_SIZE * 16];
             struct EXT2DriverRequest entry_req = {
-                .buf = buffer,
+                .buf = entryBuffer,
                 .name = cur_name,
-                .name_len = entry->name_len,
+                .name_len = entry_length,
                 .parent_inode = src_dir_inode,
                 .buffer_size = BLOCK_SIZE * 16,
                 .is_directory = false
             };
             int8_t read_res = read(entry_req);
 
+            struct EXT2Inode cur_node;
+            read_inode(cur_inode, &cur_node);
             // WRITE
             struct EXT2DriverRequest write_req = {
-                .buf = buffer,
+                .buf = entryBuffer,
                 .name = cur_name,
-                .name_len = entry->name_len,
+                .name_len = entry_length,
                 .parent_inode = dest_dir_inode,
-                .buffer_size = BLOCK_SIZE * 16,
+                .buffer_size = cur_node.i_size,
                 .is_directory = false
             };
             int8_t write_res = write(&write_req);
@@ -1586,7 +1486,8 @@ int8_t delete_recur_dir(uint32_t parent_inode, char* cur_dir_name){
 
     while (true){
         uint32_t cur_inode = dir_entry->inode;
-        char* cur_name = get_entry_name(dir_entry);
+        char cur_name[256];
+        get_entry_pure_name(dir_entry, cur_name);
         if (!memcmp(cur_name, ".", 1) || !memcmp(cur_name, "..", 2)) {
             struct EXT2DirectoryEntry* t_entry;
             t_entry = get_next_directory_entry(dir_entry);
@@ -1650,14 +1551,14 @@ void split_path(const char *path, char *parent_out, char *leaf_out) {
     }
 
     // Copy parent
-    for (size_t i = 0; i < slash_before_last_file && i < 255; i++) {
+    for (size_t i = 0; i < slash_before_last_file && i < 511; i++) {
         parent_out[i] = path[i];
     }
     parent_out[slash_before_last_file] = '\0';
 
     // Copy leaf
     size_t j = 0;
-    for (size_t i = slash_before_last_file; i < len && j < 63; i++) {
+    for (size_t i = slash_before_last_file; i < len && j < 255; i++) {
         leaf_out[j++] = path[i];
     }
     leaf_out[j] = '\0';

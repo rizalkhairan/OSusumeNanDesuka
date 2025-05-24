@@ -17,6 +17,17 @@
         "kernel-entrypoint.h": "c",
         "string.h": "c",
         "ext2.h": "c",
-        "framebuffer.h": "c"
+        "framebuffer.h": "c",
+<<<<<<< HEAD
+<<<<<<< HEAD
+        "bitset": "c",
+        "random": "c"
+=======
+        "bitset": "c"
+>>>>>>> b77f684 (chore: rename input buffer)
+=======
+        "bitset": "c",
+        "random": "c"
+>>>>>>> 5567a6e (merge: master and scheduler)
     },
 }
