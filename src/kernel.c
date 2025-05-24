@@ -145,8 +145,8 @@ void kernel_setup(void) {
     uint32_t d = write(&req7);
 
     set_tss_kernel_current_stack();
-    // kernel_execute_user_program((uint8_t*) 0);
     process_create_user_process(request);
+    // kernel_execute_user_program((uint8_t*) 0);
     scheduler_init();
     scheduler_switch_to_next_process();
 }

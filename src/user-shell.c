@@ -49,7 +49,7 @@ int main(void) {
 
     terminal_initialize();
     syscall(7, 0, 0, 0);
-    // execute("cd kusanagi", 11);
+    // execute("cat file1", 9);
     // execute("cp yoisaki asahina", 18);
     while(true){
         char c;
@@ -630,7 +630,7 @@ void cat(const char* input, uint32_t length) {
         return;
     }
     struct EXT2DriverRequest request;
-    char buff[BLOCK_COUNT * BLOCK_SIZE] = {0};
+    char buff[5 * BLOCK_SIZE] = {0};
     request.buf = buff;
     request.name = args.argv[0].buffer;
     request.name_len = args.argv[0].length;
@@ -688,7 +688,7 @@ void cat(const char* input, uint32_t length) {
     }
     uint32_t retval = 0;
     uint8_t *point = &retval;
-    syscall(11, &new.inode, point, 0);
+    syscall(11, new.inode, point, 0);
 
     row_before_path = (retval + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
     terminal_buffer.current_line_row += row_before_path; 
