@@ -17,7 +17,12 @@ uint32_t ceil_div(uint32_t a, uint32_t b) {
 }
 
 uint32_t process_generate_new_pid() {
-    return ++process_manager_state.latest_pid;
+    for(uint32_t i=0;i<PROCESS_COUNT_MAX;i++){
+        if(process_manager_state.process_used[i]==false){
+            return i;
+        }
+    }
+    return -1;
 }
 
 uint32_t process_list_get_inactive_index() {
