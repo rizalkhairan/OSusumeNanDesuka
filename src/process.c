@@ -127,9 +127,9 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     new_pcb->context.cpu.stack.ebp = 0xBFFFFFFC;
     new_pcb->context.cpu.stack.esp = 0xBFFFFFFC;
     
-    new_pcb->context.cs = 0x1B; // User code segment with PL 3
-    new_pcb->context.esp = 0xBFFFFFFC;
-    new_pcb->context.ss = 0x23;
+    // new_pcb->context.cs = 0x1B; // User code segment with PL 3
+    // new_pcb->context.esp = 0xBFFFFFFC;
+    // new_pcb->context.ss = 0x23;
     
     new_pcb->context.eflags = CPU_EFLAGS_BASE_FLAG | CPU_EFLAGS_FLAG_INTERRUPT_ENABLE;
 
