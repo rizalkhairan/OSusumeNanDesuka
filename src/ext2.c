@@ -387,6 +387,7 @@ int8_t delete(struct EXT2DriverRequest request) {
     deallocate_node(deleted_inode_number);
     update_bgdt();
     update_superblock();
+    return 0;
 }
 
 /* =============================== MEMORY ==========================================*/
@@ -1107,7 +1108,7 @@ void get_entry_pure_name(void *entry, char *purename) {
 -1: Unknown error
  */
 int8_t exist_ext2(uint32_t parent_inode, const char *path, uint32_t *res_inode) {
-    char temp_path[256];
+    char temp_path[512];
     size_t len = 0;
     while (path[len] != '\0') len++;
 
@@ -1117,8 +1118,8 @@ int8_t exist_ext2(uint32_t parent_inode, const char *path, uint32_t *res_inode) 
     size_t i = 0;
 
     while (i < len) {
-        char token[64];
-        for (int i=0; i < 64; i++){
+        char token[256];
+        for (int i=0; i < 256; i++){
             token[i] = 0;
         }
         size_t j = 0;
@@ -1190,9 +1191,9 @@ int8_t exist_ext2(uint32_t parent_inode, const char *path, uint32_t *res_inode) 
 -1: Unknown error
  */
 int8_t copy_cp(struct EXT2CopyRequest* copy_request){
-    char dest_parent[256], dest_leaf[64];
+    char dest_parent[512], dest_leaf[256];
     split_path(copy_request->destination, dest_parent, dest_leaf);
-    char src_parent[256], src_leaf[64];
+    char src_parent[512], src_leaf[256];
     split_path(copy_request->source, src_parent, src_leaf);
 
     // Check if source exists 
@@ -1289,7 +1290,7 @@ int8_t move_mv(struct EXT2CopyRequest* copy_request){
     int8_t copy_res = copy_cp(copy_request);
     if (copy_res != 0) return copy_res;
     
-    char src_parent[256], src_leaf[64];
+    char src_parent[512], src_leaf[256];
     split_path(copy_request->source, src_parent, src_leaf);
     size_t src_leaf_len = 0;
     while (src_leaf[src_leaf_len] != '\0') src_leaf_len++;
@@ -1368,11 +1369,12 @@ int8_t recursive_move_dir_files(uint32_t src_parent, char* src_name, uint32_t sr
 
         } else if (entry->file_type == EXT2_FT_REG_FILE){
             // READ
+            int entry_length = entry->name_len;
             uint8_t entryBuffer[BLOCK_SIZE * 16];
             struct EXT2DriverRequest entry_req = {
-                .buf = buffer,
+                .buf = entryBuffer,
                 .name = cur_name,
-                .name_len = entry->name_len,
+                .name_len = entry_length,
                 .parent_inode = src_dir_inode,
                 .buffer_size = BLOCK_SIZE * 16,
                 .is_directory = false
@@ -1381,9 +1383,9 @@ int8_t recursive_move_dir_files(uint32_t src_parent, char* src_name, uint32_t sr
 
             // WRITE
             struct EXT2DriverRequest write_req = {
-                .buf = buffer,
+                .buf = entryBuffer,
                 .name = cur_name,
-                .name_len = entry->name_len,
+                .name_len = entry_length,
                 .parent_inode = dest_dir_inode,
                 .buffer_size = BLOCK_SIZE * 16,
                 .is_directory = false
@@ -1545,14 +1547,14 @@ void split_path(const char *path, char *parent_out, char *leaf_out) {
     }
 
     // Copy parent
-    for (size_t i = 0; i < slash_before_last_file && i < 255; i++) {
+    for (size_t i = 0; i < slash_before_last_file && i < 511; i++) {
         parent_out[i] = path[i];
     }
     parent_out[slash_before_last_file] = '\0';
 
     // Copy leaf
     size_t j = 0;
-    for (size_t i = slash_before_last_file; i < len && j < 63; i++) {
+    for (size_t i = slash_before_last_file; i < len && j < 255; i++) {
         leaf_out[j++] = path[i];
     }
     leaf_out[j] = '\0';
