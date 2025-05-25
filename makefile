@@ -19,8 +19,8 @@ LFLAGS        = -T $(SOURCE_FOLDER)/linker.ld -melf_i386
 
 # Filesystem
 DISK_NAME      = storage
-bro: disk insert-shell run
-brodeb: disk insert-shell debug
+bro: disk insert-shell insert-timer run
+brodeb: disk insert-shell insert-timer debug
 disk:
 	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M
 debug: all
@@ -36,7 +36,7 @@ clean:
 
 
 
-kernel: gdt portio framebuffer interrupt keyboard terminal filesystem paging process scheduler
+kernel: gdt portio framebuffer interrupt keyboard terminal filesystem paging process scheduler cmos
 	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/kernel-entrypoint.s -o $(OUTPUT_FOLDER)/kernel-entrypoint.o
 	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/context-switch.s -o $(OUTPUT_FOLDER)/context-switch.o
 	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
@@ -74,7 +74,8 @@ process:
 	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/process.c -o $(OUTPUT_FOLDER)/process.o
 scheduler:
 	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/scheduler.c -o $(OUTPUT_FOLDER)/scheduler.o
-
+cmos:
+	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/cmos.c -o $(OUTPUT_FOLDER)/cmos.o
 inserter:
 	@$(CC) -Wno-builtin-declaration-mismatch -g -I$(SOURCE_FOLDER) \
 		$(SOURCE_FOLDER)/stdlib/string.c \
@@ -95,9 +96,23 @@ user-shell:
 	@size --target=binary $(OUTPUT_FOLDER)/shell
 	@rm -f *.o
 
+user-timer:
+	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/crt0.s -o crt0.o
+	@$(CC)  $(CFLAGS) -fno-pie $(SOURCE_FOLDER)/timer.c -o timer.o
+	@$(CC)  $(CFLAGS) -fno-pie $(SOURCE_FOLDER)/stdlib/string.c -o timer_string.o
+	@$(LIN) -T $(SOURCE_FOLDER)/user-linker.ld -melf_i386 --oformat=binary \
+		crt0.o timer.o timer_string.o -o $(OUTPUT_FOLDER)/timer
+	@$(LIN) -T $(SOURCE_FOLDER)/user-linker.ld -melf_i386 --oformat=elf32-i386 \
+		crt0.o timer.o timer_string.o -o $(OUTPUT_FOLDER)/timer_elf
+	@rm -f timer*.o timer_string.o
+
 insert-shell: inserter user-shell
 	@echo Inserting shell into root directory...
 	@cd $(OUTPUT_FOLDER); ./inserter shell 2 $(DISK_NAME).bin
+
+insert-timer: inserter user-timer
+	@echo Inserting timer into root directory...
+	@cd $(OUTPUT_FOLDER); ./inserter timer 2 $(DISK_NAME).bin
 
 iso: kernel
 	@mkdir -p $(OUTPUT_FOLDER)/iso/boot/grub

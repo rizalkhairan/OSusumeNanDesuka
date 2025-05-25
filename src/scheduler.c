@@ -58,7 +58,7 @@ void scheduler_switch_to_next_process(void) {
     // _interrupt_tss_entry.esp0 = next_pcb.pcb->kernel_esp;
     paging_use_page_directory(next_pcb.pcb->context.page_directory_virtual_addr);
 
-    pic_ack(IRQ_TIMER);
+    // pic_ack(IRQ_TIMER);
     process_context_switch(next_pcb.pcb->context);
 }
     

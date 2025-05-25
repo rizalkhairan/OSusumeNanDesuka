@@ -30,8 +30,18 @@ void kernel_setup(void) {
     paging_allocate_user_page_frame(&_paging_kernel_page_directory, (uint8_t*) 0);
 
     // Write shell into memory
-    char tes[BLOCK_SIZE];
-    struct EXT2DriverRequest request = {
+    // char tes[BLOCK_SIZE];
+    // struct EXT2DriverRequest request = {
+    //     .buf                   = (uint8_t*) 0,
+    //     .name                  = "timer",
+    //     .parent_inode          = 2,
+    //     .buffer_size           = 0x100000,
+    //     .name_len              = 5,
+    //     .is_directory = 0
+    // };
+    // read(request);
+
+    struct EXT2DriverRequest shell = {
         .buf                   = (uint8_t*) 0,
         .name                  = "shell",
         .parent_inode          = 2,
@@ -39,7 +49,7 @@ void kernel_setup(void) {
         .name_len              = 5,
         .is_directory = 0
     };
-    read(request);
+    // read(shell);
 
 
     struct EXT2DriverRequest req = {
@@ -145,7 +155,8 @@ void kernel_setup(void) {
     uint32_t d = write(&req7);
 
     set_tss_kernel_current_stack();
-    process_create_user_process(request);
+    process_create_user_process(shell);
+    // process_create_user_process(request);
     // kernel_execute_user_program((uint8_t*) 0);
     scheduler_init();
     scheduler_switch_to_next_process();

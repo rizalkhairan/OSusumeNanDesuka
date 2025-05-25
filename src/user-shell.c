@@ -18,20 +18,20 @@ uint16_t cwd_name_len;
 uint32_t filepath_len = 22;
 static InputBuffer terminal_buffer;
 
-Command command_table[] = {
-    { "clear",  5},
-    { "cd",     2},
-    { "mv",     2},
-    { "cp",     2},
-    { "cat",    3},
-    { "ls",     2},
-    { "mkdir",  5},
-    { "rm",     2},
-    { "find",   4},
-    { "kill",   4},
-    { "ps",     2},
-    { "exec",   4},
-};
+// Command command_table[] = {
+//     { "clear",  5},
+//     { "cd",     2},
+//     { "mv",     2},
+//     { "cp",     2},
+//     { "cat",    3},
+//     { "ls",     2},
+//     { "mkdir",  5},
+//     { "rm",     2},
+//     { "find",   4},
+//     { "kill",   4},
+//     { "ps",     2},
+//     { "exec",   4},
+// };
 #define NUM_COMMANDS (sizeof(command_table)/sizeof(Command))
 
 void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx) {
@@ -53,8 +53,7 @@ int main(void) {
     
     terminal_initialize();
     syscall(7, 0, 0, 0);
-    // execute("ps", 2);
-    // execute("cp yoisaki asahina", 18);
+    // execute("exec timer", 10);
     while(true){
         char c;
         syscall(4, &c, 0, 0);
@@ -502,6 +501,21 @@ void updateAbsolutePath(){
 }
 
 bool execute(const char* input, uint32_t length){
+    Command command_table[] = {
+        { "clear",  5},
+        { "cd",     2},
+        { "mv",     2},
+        { "cp",     2},
+        { "cat",    3},
+        { "ls",     2},
+        { "mkdir",  5},
+        { "rm",     2},
+        { "find",   4},
+        { "kill",   4},
+        { "ps",     2},
+        { "exec",   4},
+    };
+
     ParsedInput args = parse_input_n(input, length, 2);
     if(args.argc==0){
         return;
@@ -591,8 +605,8 @@ void cd(const char* input, uint32_t length){
 
     if(retval!=0){
         terminal_buffer.current_line_col = 0;
-         int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
-    terminal_buffer.current_line_row += row_before_path; 
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "invalid arg2", 12, 0x4);
     } else{
@@ -1277,7 +1291,28 @@ void exec(const char* input, uint32_t length){
         syscall(6, "command not found", 17, 0x2);
         return;
     }
-    // syscall(??, args.argv[0].buffer, args.argv[0].length, 0);
+    char tes2[BLOCK_SIZE];
+    // char copy_name[args.argv[0].length];
+    // for(uint32_t i=0;i<args.argv[0].length;i++){
+    //     copy_name[i] = args.argv[0].buffer[i];
+    // }
+
+    // struct EXT2DriverRequest requested_process = {
+    //     .buf                   = tes2,
+    //     .name                  = copy_name,
+    //     .parent_inode          = cwd_inode,
+    //     .buffer_size           = 0x100000,
+    //     .name_len              = args.argv[0].length,
+    //     .is_directory          = 0
+    // };
+    uint32_t retval;
+    syscall(18, &args.argv[0].buffer, args.argv[0].length,&retval);
+    if(retval==0){
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "gacor king", 10, 0xE);
+    }
 }
 
 void kill(const char* input, uint32_t length){
