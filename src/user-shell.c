@@ -1350,6 +1350,7 @@ void kill(const char* input, uint32_t length){
         terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
         syscall(6, "Process killed successfully", 27, 0xE);
+        syscall(21, 0,0,0);
         return;
     }
 }

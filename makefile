@@ -20,6 +20,7 @@ LFLAGS        = -T $(SOURCE_FOLDER)/linker.ld -melf_i386
 # Filesystem
 DISK_NAME      = storage
 bro: disk insert-shell insert-timer run
+bro-sound: clean disk insert-shell insert-timer insert-sound run-sound
 brodeb: disk insert-shell insert-timer debug
 disk:
 	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M
@@ -38,7 +39,7 @@ clean:
 
 
 
-kernel: gdt portio framebuffer interrupt keyboard terminal filesystem paging process scheduler cmos sound
+kernel: gdt portio framebuffer interrupt keyboard terminal filesystem paging process scheduler cmos
 	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/kernel-entrypoint.s -o $(OUTPUT_FOLDER)/kernel-entrypoint.o
 	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/context-switch.s -o $(OUTPUT_FOLDER)/context-switch.o
 	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o

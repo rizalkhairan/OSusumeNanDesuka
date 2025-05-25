@@ -230,6 +230,14 @@ void syscall(struct InterruptFrame frame) {
             // ecx = process_destroy(ebx)
             *((bool*) frame.cpu.general.ecx) = process_destroy((uint32_t) frame.cpu.general.ebx);
             break;
+        case 20:
+            // play sound
+            play_sound(frame.cpu.general.ebx);
+            break;
+        case 21:
+            // stop sound
+            nosound();
+            break;
     }
 }
 
@@ -256,4 +264,29 @@ void puts(char* buf, uint32_t count, uint8_t color) {
             ++r;
         }
     }
+}
+
+void play_sound(uint32_t freq) {
+    if (freq == 0) return;
+
+    uint32_t divisor = 1193180 / freq;
+
+    // Command byte to set PIT channel 2, access mode lobyte/hibyte, mode 3 (square wave)
+    out(0x43, 0xB6);
+
+    // Set frequency divisor for channel 2
+    out(0x42, (uint8_t)(divisor & 0xFF));         // Low byte
+    out(0x42, (uint8_t)((divisor >> 8) & 0xFF));  // High byte
+
+    // Enable the speaker by setting bits 0 and 1 at port 0x61
+    uint8_t tmp = in(0x61);
+    if ((tmp & 0x03) != 0x03) {
+        out(0x61, tmp | 0x03);
+    }
+}
+
+void nosound() {
+    // Clear bits 0 and 1 at port 0x61 to turn off the speaker
+    uint8_t tmp = in(0x61) & 0xFC;
+    out(0x61, tmp);
 }
