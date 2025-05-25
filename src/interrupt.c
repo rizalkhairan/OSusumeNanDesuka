@@ -189,16 +189,17 @@ void syscall(struct InterruptFrame frame) {
             memcpy((void*) frame.cpu.general.ecx, &process_manager_state, sizeof(struct ProcessManagerState));
             break;
         case 17:
-            {
-                uint8_t* buffer = (uint8_t*) frame.cpu.general.ebx;
-                uint8_t h, m, s;
-                cmos_read_time(&h, &m, &s);
-                buffer[0] = h;
-                buffer[1] = m;
-                buffer[2] = s;
-            } 
-            break;
+        {
+            uint8_t* buffer = (uint8_t*) frame.cpu.general.ebx;
+            uint8_t h, m, s;
+            cmos_read_time(&h, &m, &s);
+            buffer[0] = h;
+            buffer[1] = m;
+            buffer[2] = s;
+        } 
+        break;
         case 18:
+        {
             uint32_t length = frame.cpu.general.ecx;
             char* original_name = frame.cpu.general.ebx;
             char copy_name[length];
@@ -216,14 +217,18 @@ void syscall(struct InterruptFrame frame) {
                 .is_directory          = 0
             };
             *((int8_t*) frame.cpu.general.ecx) = process_create_user_process(requested_process);
-            
-            for(uint32_t i=0;i<PROCESS_COUNT_MAX;i++){
-                if(_process_list[i].metadata.pid==process_manager_state.latest_pid){
-                    struct PCBQueueItem new_process = {.pcb = &_process_list[i]};
-                    pcb_enqueue(&scheduling_queue, new_process);
+                for(uint32_t i=0;i<PROCESS_COUNT_MAX;i++){
+                    if(_process_list[i].metadata.pid==process_manager_state.latest_pid){
+                        struct PCBQueueItem new_process = {.pcb = &_process_list[i]};
+                        pcb_enqueue(&scheduling_queue, new_process);
+                    }
                 }
             }
-
+            break;
+            break;
+        case 19:
+            // ecx = process_destroy(ebx)
+            *((bool*) frame.cpu.general.ecx) = process_destroy((uint32_t) frame.cpu.general.ebx);
             break;
     }
 }

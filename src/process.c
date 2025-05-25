@@ -175,29 +175,30 @@ exit_cleanup:
     return retcode;
 }
 
-bool process_destroy(uint32_t pid) {
+bool process_destroy(uint32_t pid) { 
     for (uint32_t i = 0; i < PROCESS_COUNT_MAX; i++) {
         if (process_manager_state.process_used[i] && _process_list[i].metadata.pid == pid) {
-            // Free all allocated pages
-            for (uint32_t j = 0; j < _process_list[i].memory.page_frame_used_count; j++) {
-                if (_process_list[i].memory.virtual_addr_used[j]) {
-                    paging_free_user_page_frame(
-                        _process_list[i].context.page_directory_virtual_addr,
-                        _process_list[i].memory.virtual_addr_used[j]
-                    );
-                }
-            }
-
-            // Free page directory
-            paging_free_page_directory(_process_list[i].context.page_directory_virtual_addr);
-
             // Clear PCB
-            memset(&_process_list[i], 0, sizeof(struct ProcessControlBlock));
-
+            _process_list[i].metadata.process_state = TERMINATED;
+            
             // Update process manager state
             process_manager_state.process_used[i] = false;
             process_manager_state.active_process_count--;
+            
+            // // Free all allocated pages
+            // for (uint32_t j = 0; j < _process_list[i].memory.page_frame_used_count; j++) {
+            //     if (_process_list[i].memory.virtual_addr_used[j]) {
+            //         paging_free_user_page_frame(
+            //             _process_list[i].context.page_directory_virtual_addr,
+            //             _process_list[i].memory.virtual_addr_used[j]
+            //         );
+            //     }
+            // }
 
+            // // Free page directory
+            // paging_free_page_directory(_process_list[i].context.page_directory_virtual_addr);
+            
+            
             return true;
         }
     }

@@ -158,6 +158,7 @@ void kernel_setup(void) {
     process_create_user_process(shell);
     // process_create_user_process(request);
     // kernel_execute_user_program((uint8_t*) 0);
+    // process_init();
     scheduler_init();
     scheduler_switch_to_next_process();
 }

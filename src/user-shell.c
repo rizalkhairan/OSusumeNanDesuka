@@ -53,7 +53,12 @@ int main(void) {
     
     terminal_initialize();
     syscall(7, 0, 0, 0);
+    // execute("kill 0", 6);
+    // execute("ps", 2);
+    // execute("cp yoisaki asahina", 18);
     // execute("exec timer", 10);
+    // execute("exec timer", 10);
+    // execute("kill 1", 6);
     while(true){
         char c;
         syscall(4, &c, 0, 0);
@@ -1324,10 +1329,32 @@ void kill(const char* input, uint32_t length){
         syscall(6, "command not found", 17, 0x2);
         return;
     }
-    // syscall(??, args.argv[0].buffer, args.argv[0].length, 0);
+    int pid = strToInt(args.argv[0].buffer, args.argv[0].length);
+    if(pid < 0 || pid >= PROCESS_COUNT_MAX) {
+        terminal_buffer.current_line_col = 0;
+        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "Invalid PID", 11, 0x2);
+        return;
+    }
+    bool is_process_running = false;
+    syscall(19, pid, &is_process_running, 0);
+    if (!is_process_running) {
+        terminal_buffer.current_line_col = 0;
+        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "Process not found", 17, 0x2);
+        return;
+    } else {
+        terminal_buffer.current_line_col = 0;
+        terminal_buffer.current_line_row += (length + filepath_len + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH; // TODO: VALIDASI TEMBUS LAYAR
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "Process killed successfully", 27, 0xE);
+        return;
+    }
 }
 
-int stringToChar(char* str, uint32_t length){
+int strToInt(char* str, uint32_t length){
     int result = 0;
     for(uint32_t i=0;i<length;i++){
         result = result*10 + (str[i] - '0');
