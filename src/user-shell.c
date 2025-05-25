@@ -519,6 +519,7 @@ bool execute(const char* input, uint32_t length){
         { "kill",   4},
         { "ps",     2},
         { "exec",   4},
+        { "badapple", 8}
     };
 
     ParsedInput args = parse_input_n(input, length, 2);
@@ -545,6 +546,7 @@ bool execute(const char* input, uint32_t length){
         else if(i==9){kill(args.argv[1].buffer, args.argv[1].length);}
         else if(i==10){ps(args.argv[1].buffer, args.argv[1].length);}
         else if(i==11){exec(args.argv[1].buffer, args.argv[1].length);}
+         else if(i==12){badapple(args.argv[1].buffer, args.argv[1].length);}
 
         return true;
     } else{
@@ -1404,4 +1406,77 @@ void intToString(uint32_t num, char* str, uint32_t length) {
         str[i] = (num % 10) + '0';
         num /= 10;
     }
+}
+
+int decompress_frame(char* compressed, int compressed_len, char* output, int max_out_len) {
+    int out_idx = 0;
+    for (int i = 0; i < compressed_len && out_idx < max_out_len;) {
+        char c = compressed[i++];
+        int count = 0;
+
+        // parse number
+        while (i < compressed_len && compressed[i] >= '0' && compressed[i] <= '9') {
+            count = count * 10 + (compressed[i++] - '0');
+        }
+        if (count == 0) count = 1;
+
+        for (int j = 0; j < count && out_idx < max_out_len; j++) {
+            output[out_idx++] = c;
+        }
+    }
+    return out_idx;  // return the number of output characters
+}
+
+
+void badapple(const char* input, uint32_t length){
+    flush();
+    terminal_buffer.current_line_row = 0;
+    syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+    ParsedInput args = parse_input_all(input, length, ' ');
+
+    // GET TEXT
+    char bad[BLOCK_SIZE * 5000];
+    struct EXT2DriverRequest applereq = {
+        .name = "bafc12.txt",
+        .name_len = 10,
+        .parent_inode = 2,
+        .buffer_size = BLOCK_SIZE * 5000,
+        .is_directory = false,
+        .buf = bad,
+    };
+    uint8_t res = 0;
+    syscall(0, &applereq, &res, 0);
+    if(res != 0) {
+        terminal_buffer.current_line_col = 0;
+        int row_before_path = (args.argv[0].length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "Bad Apple text not found", 24, 0x4);
+        return;
+    }
+
+    // PRINTING
+    int i = 0;
+    int frames = 0;
+    while (i < BLOCK_SIZE * 1316) {
+        char decompressed[2000];
+        char compressed[1024];  // max needed is small (~8-10 chars for RLE)
+        int comp_len = 0;
+        int out_len = 0;
+
+        // Fill compressed chunk until decompressed output is 2000 characters
+        while (out_len < 2000 && (i + comp_len) < BLOCK_SIZE * 1316) {
+            compressed[comp_len++] = bad[i + comp_len];
+            out_len = decompress_frame(compressed, comp_len, decompressed, 2000);
+        }
+
+        i += comp_len;
+
+        // Fully decompress into final buffer
+        decompress_frame(compressed, comp_len, decompressed, 2000);
+        syscall(6, decompressed, 2000, 0xF);
+
+        for (volatile int delay = 0; delay < 5000000; delay++);
+    }
+    clear("", 0);
 }

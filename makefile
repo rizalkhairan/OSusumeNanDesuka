@@ -19,9 +19,9 @@ LFLAGS        = -T $(SOURCE_FOLDER)/linker.ld -melf_i386
 
 # Filesystem
 DISK_NAME      = storage
-bro: disk insert-shell insert-timer run
+bro: disk insert-shell insert-timer insert-badapple-12 run
 bro-sound: clean disk insert-shell insert-timer insert-sound run-sound
-brodeb: disk insert-shell insert-timer debug
+brodeb: disk insert-shell insert-badapple-12 debug
 disk:
 	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M
 debug: all
@@ -123,6 +123,18 @@ user-sound:
 insert-shell: inserter user-shell
 	@echo Inserting shell into root directory...
 	@cd $(OUTPUT_FOLDER); ./inserter shell 2 $(DISK_NAME).bin
+insert-badapple-10: 
+	@echo Inserting shell into root directory...
+	@cd $(OUTPUT_FOLDER); ./inserter bafc.txt 2 $(DISK_NAME).bin
+insert-badapple-12: 
+	@echo Inserting shell into root directory...
+	@cd $(OUTPUT_FOLDER); ./inserter bafc12.txt 2 $(DISK_NAME).bin
+insert-badapple-15: 
+	@echo Inserting shell into root directory...
+	@cd $(OUTPUT_FOLDER); ./inserter bafc15.txt 2 $(DISK_NAME).bin
+insert-badapple-30: 
+	@echo Inserting shell into root directory...
+	@cd $(OUTPUT_FOLDER); ./inserter bafc30.txt 2 $(DISK_NAME).bin
 insert-timer: inserter user-timer
 	@echo Inserting timer into root directory...
 	@cd $(OUTPUT_FOLDER); ./inserter timer 2 $(DISK_NAME).bin
