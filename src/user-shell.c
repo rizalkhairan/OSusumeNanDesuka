@@ -1310,13 +1310,43 @@ void exec(const char* input, uint32_t length){
     //     .name_len              = args.argv[0].length,
     //     .is_directory          = 0
     // };
+    /*
+    #define PROCESS_CREATE_SUCCESS                   0
+    #define PROCESS_CREATE_FAIL_MAX_PROCESS_EXCEEDED 1
+    #define PROCESS_CREATE_FAIL_INVALID_ENTRYPOINT   2
+    #define PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY    3
+    #define PROCESS_CREATE_FAIL_FS_READ_FAILURE      4*/
     uint32_t retval;
     syscall(18, &args.argv[0].buffer, args.argv[0].length,&retval);
     if(retval==0){
         int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
         terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, "gacor king", 10, 0xE);
+        syscall(6, " Create success", 10, 0xE);
+    } else if (retval==1){
+        terminal_buffer.current_line_col = 0;
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "Maximum process count exceeded", 31, 0x2);
+    } else if (retval==2){
+        terminal_buffer.current_line_col = 0;
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "Invalid entrypoint", 18, 0x2);
+    } else if (retval==3){
+        terminal_buffer.current_line_col = 0;
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "Not enough memory", 18, 0x2);
+    } else if (retval==4){
+        terminal_buffer.current_line_col = 0;
+        int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_row += row_before_path; 
+        syscall(10, (uint32_t)&terminal_buffer, 0, 0);
+        syscall(6, "Failed to read file", 19, 0x2);
     }
 }
 
