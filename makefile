@@ -27,6 +27,8 @@ debug: all
 	@qemu-system-i386 -s -S -drive file=$(OUTPUT_FOLDER)/storage.bin,format=raw,if=ide,index=0,media=disk -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
 run: all
 	@qemu-system-i386 -s  -drive file=$(OUTPUT_FOLDER)/storage.bin,format=raw,if=ide,index=0,media=disk -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
+run-sound: all
+	@qemu-system-i386 -s -soundhw pcspk -drive file=$(OUTPUT_FOLDER)/storage.bin,format=raw,if=ide,index=0,media=disk -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
 all: build
 build: iso
 clean:
@@ -36,7 +38,7 @@ clean:
 
 
 
-kernel: gdt portio framebuffer interrupt keyboard terminal filesystem paging process scheduler cmos
+kernel: gdt portio framebuffer interrupt keyboard terminal filesystem paging process scheduler cmos sound
 	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/kernel-entrypoint.s -o $(OUTPUT_FOLDER)/kernel-entrypoint.o
 	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/context-switch.s -o $(OUTPUT_FOLDER)/context-switch.o
 	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
@@ -76,6 +78,9 @@ scheduler:
 	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/scheduler.c -o $(OUTPUT_FOLDER)/scheduler.o
 cmos:
 	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/cmos.c -o $(OUTPUT_FOLDER)/cmos.o
+sound:
+	@$(CC) $(CFLAGS) $(SOURCE_FOLDER)/sound.c -o $(OUTPUT_FOLDER)/sound.o
+
 inserter:
 	@$(CC) -Wno-builtin-declaration-mismatch -g -I$(SOURCE_FOLDER) \
 		$(SOURCE_FOLDER)/stdlib/string.c \
@@ -113,6 +118,9 @@ insert-shell: inserter user-shell
 insert-timer: inserter user-timer
 	@echo Inserting timer into root directory...
 	@cd $(OUTPUT_FOLDER); ./inserter timer 2 $(DISK_NAME).bin
+insert-melody: inserter
+	@echo Inserting melody into root directory...
+	@cd $(OUTPUT_FOLDER); ./inserter melody.bin 2 $(DISK_NAME).bin
 
 iso: kernel
 	@mkdir -p $(OUTPUT_FOLDER)/iso/boot/grub
