@@ -100,7 +100,6 @@ user-shell:
 	@echo Linking object shell object files and generate ELF32 for debugging...
 	@size --target=binary $(OUTPUT_FOLDER)/shell
 	@rm -f *.o
-
 user-timer:
 	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/crt0.s -o crt0.o
 	@$(CC)  $(CFLAGS) -fno-pie $(SOURCE_FOLDER)/timer.c -o timer.o
@@ -110,17 +109,29 @@ user-timer:
 	@$(LIN) -T $(SOURCE_FOLDER)/user-linker.ld -melf_i386 --oformat=elf32-i386 \
 		crt0.o timer.o timer_string.o -o $(OUTPUT_FOLDER)/timer_elf
 	@rm -f timer*.o timer_string.o
+user-sound:
+	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/crt0.s -o crt0.o
+	@$(CC)  $(CFLAGS) -fno-pie $(SOURCE_FOLDER)/sound.c -o sound.o
+	@$(CC)  $(CFLAGS) -fno-pie $(SOURCE_FOLDER)/stdlib/string.c -o sound_string.o
+	@$(LIN) -T $(SOURCE_FOLDER)/user-linker.ld -melf_i386 --oformat=binary \
+		crt0.o sound.o sound_string.o -o $(OUTPUT_FOLDER)/sound
+	@$(LIN) -T $(SOURCE_FOLDER)/user-linker.ld -melf_i386 --oformat=elf32-i386 \
+		crt0.o sound.o sound_string.o -o $(OUTPUT_FOLDER)/sound_elf
+	@rm -f sound*.o sound_string.o
 
 insert-shell: inserter user-shell
 	@echo Inserting shell into root directory...
 	@cd $(OUTPUT_FOLDER); ./inserter shell 2 $(DISK_NAME).bin
-
 insert-timer: inserter user-timer
 	@echo Inserting timer into root directory...
 	@cd $(OUTPUT_FOLDER); ./inserter timer 2 $(DISK_NAME).bin
 insert-melody: inserter
 	@echo Inserting melody into root directory...
 	@cd $(OUTPUT_FOLDER); ./inserter melody.bin 2 $(DISK_NAME).bin
+insert-sound: inserter user-sound
+	@echo Inserting melody into root directory...
+	@cd $(OUTPUT_FOLDER); ./inserter sound 2 $(DISK_NAME).bin
+
 
 iso: kernel
 	@mkdir -p $(OUTPUT_FOLDER)/iso/boot/grub
