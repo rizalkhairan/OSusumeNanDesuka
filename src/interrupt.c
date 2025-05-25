@@ -186,6 +186,9 @@ void syscall(struct InterruptFrame frame) {
             memcpy((void*) frame.cpu.general.ebx, _process_list, sizeof(struct ProcessControlBlock)*PROCESS_COUNT_MAX);
             memcpy((void*) frame.cpu.general.ecx, &process_manager_state, sizeof(struct ProcessManagerState));
             break;
+        case 19:
+            // ecx = process_destroy(ebx)
+            *((bool*) frame.cpu.general.ecx) = process_destroy((uint32_t) frame.cpu.general.ebx);
     }
 }
 

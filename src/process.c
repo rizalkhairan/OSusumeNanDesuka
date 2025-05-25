@@ -172,7 +172,7 @@ exit_cleanup:
     return retcode;
 }
 
-bool process_destroy(uint32_t pid) {
+bool process_destroy(uint32_t pid) { 
     for (uint32_t i = 0; i < PROCESS_COUNT_MAX; i++) {
         if (process_manager_state.process_used[i] && _process_list[i].metadata.pid == pid) {
             // Free all allocated pages
