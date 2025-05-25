@@ -46,19 +46,43 @@ void scheduler_save_context_to_current_running_pcb(struct Context ctx) {
             current_running_pcb->metadata.process_state = READY;
             struct PCBQueueItem current_running_pcb_item = {.pcb = current_running_pcb};
             pcb_enqueue(&scheduling_queue, current_running_pcb_item);
+        } else {
+            uint32_t i = current_running_pcb->metadata.pid;
+            // Free all allocated pages
+            for (uint32_t j = 0; j < _process_list[i].memory.page_frame_used_count; j++) {
+                if (_process_list[i].memory.virtual_addr_used[j]) {
+                    paging_free_user_page_frame(
+                        _process_list[i].context.page_directory_virtual_addr,
+                        _process_list[i].memory.virtual_addr_used[j]
+                    );
+                }
+            }
+
+            // Free page directory
+            paging_free_page_directory(_process_list[i].context.page_directory_virtual_addr);
         }
     }
 }
 
 void scheduler_switch_to_next_process(void) {
     struct PCBQueueItem next_pcb;
-    pcb_dequeue(&scheduling_queue, &next_pcb);
+    
+    bool retVal = pcb_dequeue(&scheduling_queue, &next_pcb);
+    if (!retVal){
+        for(uint32_t i=0;i<PROCESS_COUNT_MAX;i++){
+            if(_process_list[i].metadata.pid==process_manager_state.latest_pid){
+                next_pcb.pcb = &_process_list[i];
+                break;
+            }
+        }
+    }
+    
     next_pcb.pcb->metadata.process_state = RUNNING;
 
     // _interrupt_tss_entry.esp0 = next_pcb.pcb->kernel_esp;
     paging_use_page_directory(next_pcb.pcb->context.page_directory_virtual_addr);
 
-    pic_ack(IRQ_TIMER);
+    // pic_ack(IRQ_TIMER);
     process_context_switch(next_pcb.pcb->context);
 }
     

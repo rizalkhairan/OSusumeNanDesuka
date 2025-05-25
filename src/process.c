@@ -137,7 +137,8 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     paging_use_page_directory(new_pd);
 
     // Load the executable
-    if (read(request)) {
+    uint32_t retval_read = read(request);
+    if (retval_read){
         paging_use_page_directory(current_pd);
         retcode = PROCESS_CREATE_FAIL_FS_READ_FAILURE;
         goto exit_cleanup;
@@ -165,6 +166,8 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     process_manager_state.process_used[p_index] = true;
     process_manager_state.active_process_count++;
 
+    // update global metadata
+    process_manager_state.latest_pid = new_pcb->metadata.pid;
 exit_cleanup:
     if (retcode != PROCESS_CREATE_SUCCESS && new_pcb) {
         memset(new_pcb, 0, sizeof(struct ProcessControlBlock));
@@ -175,26 +178,27 @@ exit_cleanup:
 bool process_destroy(uint32_t pid) { 
     for (uint32_t i = 0; i < PROCESS_COUNT_MAX; i++) {
         if (process_manager_state.process_used[i] && _process_list[i].metadata.pid == pid) {
-            // Free all allocated pages
-            for (uint32_t j = 0; j < _process_list[i].memory.page_frame_used_count; j++) {
-                if (_process_list[i].memory.virtual_addr_used[j]) {
-                    paging_free_user_page_frame(
-                        _process_list[i].context.page_directory_virtual_addr,
-                        _process_list[i].memory.virtual_addr_used[j]
-                    );
-                }
-            }
-
-            // Free page directory
-            paging_free_page_directory(_process_list[i].context.page_directory_virtual_addr);
-
             // Clear PCB
-            memset(&_process_list[i], 0, sizeof(struct ProcessControlBlock));
-
+            _process_list[i].metadata.process_state = TERMINATED;
+            
             // Update process manager state
             process_manager_state.process_used[i] = false;
             process_manager_state.active_process_count--;
+            
+            // // Free all allocated pages
+            // for (uint32_t j = 0; j < _process_list[i].memory.page_frame_used_count; j++) {
+            //     if (_process_list[i].memory.virtual_addr_used[j]) {
+            //         paging_free_user_page_frame(
+            //             _process_list[i].context.page_directory_virtual_addr,
+            //             _process_list[i].memory.virtual_addr_used[j]
+            //         );
+            //     }
+            // }
 
+            // // Free page directory
+            // paging_free_page_directory(_process_list[i].context.page_directory_virtual_addr);
+            
+            
             return true;
         }
     }
