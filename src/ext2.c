@@ -211,22 +211,16 @@ void initialize_filesystem_ext2(void){
 }
 
 bool is_directory_empty(uint32_t inode){
-    // Finding current inode from inode number
-    struct EXT2Inode *currentInode;
-    read_inode(inode, currentInode);
+    // Check whether the there are only 2 entries
+    struct EXT2Inode current_inode;
+    read_inode(inode, &current_inode);
 
-    struct BlockBuffer buf;
-    read_blocks(&buf, currentInode->i_block[0], 1);
+    struct BlockBuffer entries;
+    read_blocks(&entries, current_inode.i_block[0], 1);
 
-    uint32_t offset = 0;
-    struct EXT2DirectoryEntry *self = (struct EXT2DirectoryEntry *)(buf.buf + offset);
-    offset += self->rec_len;
-    struct EXT2DirectoryEntry *parent = (struct EXT2DirectoryEntry *)(buf.buf + offset);
-    if (parent->rec_len == 0){
-        return true;
-    } else {
-        return false;
-    }
+    struct EXT2DirectoryEntry *self = (struct EXT2DirectoryEntry *)(entries.buf);
+    struct EXT2DirectoryEntry *parent = (struct EXT2DirectoryEntry *)(entries.buf + self->rec_len);
+    return parent->rec_len == 0;
 }
 
 /* =============================== CRUD ==========================================*/
