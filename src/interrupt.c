@@ -805,6 +805,7 @@ void print(char* s, int32_t *area, uint8_t *colors) {
     uint8_t fg_color, bg_color;
     uint8_t start_row, end_row;
     uint8_t row, col;
+    int32_t char_written = 0;
 
     // Normalize row numbers
     while (temp_start_row < 0) temp_start_row += FRAMEBUFFER_COL_LENGTH;
@@ -836,7 +837,7 @@ void print(char* s, int32_t *area, uint8_t *colors) {
             }
             if (row > end_row) {
                 // If out of bounds, just return
-                return;
+                break;
             }
             if (*s == '\n') {
                 row++;
@@ -844,50 +845,59 @@ void print(char* s, int32_t *area, uint8_t *colors) {
             } else {
                 framebuffer_write(row, col, *s, fg_color, bg_color);
                 col++;
+                char_written++;
             }
 
             s++;
         }
 
-        return;
     }
-
     // Non-null terminated string
-    row = start_row;
-    col = 0;
-    for (int32_t i = 0; i < strlen; i++) {
-        char c = s[i];
-        if (col > FRAMEBUFFER_ROW_LENGTH) {
-            col = 0;
-            row++;
+    else {
+        row = start_row;
+        col = 0;
+        int32_t i = 0;
+        for (; i < strlen; i++) {
+            char c = s[i];
+            if (col > FRAMEBUFFER_ROW_LENGTH) {
+                col = 0;
+                row++;
+            }
+            if (row > end_row) break;
+            if (c == '\0') break;
+            if (c == '\n') {
+                row++;
+                continue;
+            }
+            if (c == '\r') {
+                col = 0; // Reset column on carriage return
+                continue;
+            }
+            // if (c == '\t') {
+            //     // Tab character, move to next tab stop
+            //     col += 4 - (col % 4); // Assuming tab size of 4 spaces
+            //     if (col >= FRAMEBUFFER_ROW_LENGTH) {
+            //         col = 0;
+            //         row++;
+            //     }
+            //     continue;
+            // }
+    
+            if (colors != NULL) {
+                fg_color = colors[i * 2];
+                bg_color = colors[i * 2 + 1];
+            }
+    
+            framebuffer_write(row, col, c, fg_color, bg_color);
+            col++;
         }
-        if (row > end_row) return;
-        if (c == '\0') return;
-        if (c == '\n') {
-            row++;
-            continue;
-        }
-        if (c == '\r') {
-            col = 0; // Reset column on carriage return
-            continue;
-        }
-        // if (c == '\t') {
-        //     // Tab character, move to next tab stop
-        //     col += 4 - (col % 4); // Assuming tab size of 4 spaces
-        //     if (col >= FRAMEBUFFER_ROW_LENGTH) {
-        //         col = 0;
-        //         row++;
-        //     }
-        //     continue;
-        // }
 
-        if (colors != NULL) {
-            fg_color = colors[i * 2];
-            bg_color = colors[i * 2 + 1];
-        }
-
-        framebuffer_write(row, col, c, fg_color, bg_color);
-        col++;
+        char_written = i;
     }
+
+    // Return the value of the value of the last row written into
+    area[0] = (int32_t) start_row;
+    area[1] = (int32_t) row; // Last row written into
+    area[2] = (int32_t) char_written; // Number of characters written, or length of the string
     return;
 }
