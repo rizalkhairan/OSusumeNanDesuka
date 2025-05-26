@@ -188,14 +188,7 @@ void syscall(struct InterruptFrame frame) {
             memcpy((void*) frame.cpu.general.ecx, &process_manager_state, sizeof(struct ProcessManagerState));
             break;
         case 17:
-        {
-            uint8_t* buffer = (uint8_t*) frame.cpu.general.ebx;
-            uint8_t h, m, s;
-            cmos_read_time(&h, &m, &s);
-            buffer[0] = h;
-            buffer[1] = m;
-            buffer[2] = s;
-        } 
+            cmos_read_time((uint8_t*) frame.cpu.general.ebx);
         break;
         case 18:
         {
