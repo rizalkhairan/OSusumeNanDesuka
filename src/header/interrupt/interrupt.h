@@ -171,4 +171,24 @@ struct TSSEntry {
 // Set kernel stack in TSS
 void set_tss_kernel_current_stack(void);
 
+// Helper for syscall 13, 14, and 15
+struct EXT2CopyRequest
+{
+    uint32_t root_inode;
+    char* source;
+    char* destination;
+}__attribute__((packed));
+
+int8_t copy_cp(struct EXT2CopyRequest* copy_request);
+int8_t move_mv(struct EXT2CopyRequest* copy_request);
+int8_t exist_ext2(uint32_t base_inode, const char *path, uint32_t *res_inode);
+void split_path(const char *path, char *parent_out, char *leaf_out);
+int8_t recursive_move_dir_files(uint32_t src_parent, char* src_name, uint32_t src_dir_inode, uint32_t dest_dir_inode);
+int8_t recursive_make_dir(uint32_t src_parent, char* src_name, uint32_t src_dir_inode, uint32_t dest_dir_inode);
+int8_t delete_recur_dir(uint32_t parent_inode, char* cur_dir_name);
+
+// Helper for syscall 20, 21
+void play_sound(uint32_t freq);
+void nosound(void);
+
 #endif

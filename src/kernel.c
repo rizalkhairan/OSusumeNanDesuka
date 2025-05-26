@@ -159,6 +159,40 @@ void kernel_setup(void) {
     };
     uint32_t d = write(&req7);
 
+    uint32_t file5_block_count = 140 + 128 + 1;
+    struct BlockBuffer file5[file5_block_count];
+    struct EXT2DriverRequest req8 = {
+        .name = file5[0].buf + 20,
+        .name_len = 9,
+        .parent_inode = 2,
+        .buffer_size = BLOCK_SIZE * file5_block_count,
+        .is_directory = false,
+        .buf = file5[0].buf
+    };
+    for (uint16_t i = 0; i < 30 ; i++) {
+        char filenumber[4] = {
+            (char) ((i / 1000) % 10 + '0'),
+            (char) ((i / 100) % 10 + '0'),
+            (char) ((i / 10) % 10 + '0'),
+            (char) (i % 10 + '0')
+        };
+        for (uint32_t j = 0; j < file5_block_count; j++) {
+            memset(file5[j].buf, (char) (j%10) + '0', BLOCK_SIZE);
+            memcpy(file5[j].buf, "DATA BLK - XXXX   / FILE-XXXX ", 30);
+            char blocknumber[4] = {
+                (char) ((j / 1000)%10 + '0'),
+                (char) ((j / 100)%10 + '0'),
+                (char) ((j / 10)%10 + '0'),
+                (char) (j % 10 + '0')
+            };
+            memcpy(file5[j].buf + 25, filenumber, 4);
+            memcpy(file5[j].buf + 11, blocknumber, 4);
+        }
+        uint32_t e = write(&req8);
+
+        if (e != 0) break;
+    }
+
     set_tss_kernel_current_stack();
     process_create_user_process(shell);
     // process_create_user_process(request);
