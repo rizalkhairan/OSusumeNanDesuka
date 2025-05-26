@@ -191,4 +191,24 @@ int8_t delete_recur_dir(uint32_t parent_inode, char* cur_dir_name);
 void play_sound(uint32_t freq);
 void nosound(void);
 
+// Helper for syscall 30
+
+/**
+ * Put a string into the framebuffer at a particular row that handles escape character
+ * Print into row to endrow inclusive
+ * Colors: 0x0 black, 0x1 blue, 0x2 green, 0x3 cyan, 0x4 red, 0x5 magenta, 0x6 brown,
+ *      0x7 light gray, 0x8 dark gray, 0x9 light blue, 0xA light green, 0xB light cyan,
+ *      0xC light red, 0xD light magenta, 0xE yellow, 0xF white
+ * 
+ * @param string to be printed into the framebuffer which may contains escape characters
+ * @param area provides information where and how many to print the string into the framebuffer
+ *  Points to three integers, the first is the start row, the second is the end row inclusive.
+ *  Modulo framebuffer row amount. 0 is the first row, -1 is the last row
+ *  The third integer is the number of characters in the string. If -1, print until null terminator (does not support color in this mode since i am lazy)
+ * @param colors interleaved fg and bg colors of strings' characters.
+ *  Of the form fg0bg0fg1bg1...fgNbgN where N is the N-th character's color in the string
+ *  If null, the default color will be used for all characters
+ */
+void print(char *s, int32_t *area, uint8_t *colors);
+
 #endif

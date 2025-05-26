@@ -56,7 +56,6 @@ void main_interrupt_handler(struct InterruptFrame frame) {
             syscall(frame);
             break;
         case PIC1_OFFSET + IRQ_TIMER:
-            pic_ack(IRQ_TIMER);
             struct ProcessControlBlock* current_running_pcb = process_get_current_running_pcb_pointer();
             struct Context ctx = {
                 .cpu = frame.cpu,
@@ -77,16 +76,16 @@ void main_interrupt_handler(struct InterruptFrame frame) {
 }
 
 void activate_timer_interrupt(void) {
-    // __asm__ volatile("cli");
-    // // Setup how often PIT fire
-    // uint32_t pit_timer_counter_to_fire = PIT_TIMER_COUNTER;
-    // out(PIT_COMMAND_REGISTER_PIO, PIT_COMMAND_VALUE);
-    // out(PIT_CHANNEL_0_DATA_PIO, (uint8_t) (pit_timer_counter_to_fire & 0xFF));
-    // out(PIT_CHANNEL_0_DATA_PIO, (uint8_t) ((pit_timer_counter_to_fire >> 8) & 0xFF));
+    __asm__ volatile("cli");
+    // Setup how often PIT fire
+    uint32_t pit_timer_counter_to_fire = PIT_TIMER_COUNTER;
+    out(PIT_COMMAND_REGISTER_PIO, PIT_COMMAND_VALUE);
+    out(PIT_CHANNEL_0_DATA_PIO, (uint8_t) (pit_timer_counter_to_fire & 0xFF));
+    out(PIT_CHANNEL_0_DATA_PIO, (uint8_t) ((pit_timer_counter_to_fire >> 8) & 0xFF));
 
-    // // Activate the interrupt
-    // out(PIC1_DATA, in(PIC1_DATA) & ~(1 << IRQ_TIMER));
-    // __asm__ volatile("sti");
+    // Activate the interrupt
+    out(PIC1_DATA, in(PIC1_DATA) & ~(1 << IRQ_TIMER));
+    __asm__ volatile("sti");
 }
 
 void activate_keyboard_interrupt(void) {
@@ -238,6 +237,13 @@ void syscall(struct InterruptFrame frame) {
             // stop sound
             nosound();
             break;
+        case 30:
+            // Print into some rows the framebuffer
+            print(
+                (char *) frame.cpu.general.ebx,
+                (int32_t *) frame.cpu.general.ecx,
+                (uint8_t *) frame.cpu.general.edx
+            );
     }
 }
 
@@ -784,4 +790,104 @@ void nosound() {
     // Clear bits 0 and 1 at port 0x61 to turn off the speaker
     uint8_t tmp = in(0x61) & 0xFC;
     out(0x61, tmp);
+}
+
+
+/**
+ * SYSCALL 30 HANDLER
+ * 
+ * Write a string into rows of the framebuffer taking into account size of framebuffer area to write into and escape characters within the string
+ */
+void print(char* s, int32_t *area, uint8_t *colors) {
+    int32_t temp_start_row = area[0];
+    int32_t temp_end_row = area[1];
+    int32_t strlen = area[2];
+    uint8_t fg_color, bg_color;
+    uint8_t start_row, end_row;
+    uint8_t row, col;
+
+    // Normalize row numbers
+    while (temp_start_row < 0) temp_start_row += FRAMEBUFFER_COL_LENGTH;
+    while (temp_start_row >= FRAMEBUFFER_COL_LENGTH) temp_start_row -= FRAMEBUFFER_COL_LENGTH;
+    while (temp_end_row < 0) temp_end_row += FRAMEBUFFER_COL_LENGTH;
+    while (temp_end_row >= FRAMEBUFFER_COL_LENGTH) temp_end_row -= FRAMEBUFFER_COL_LENGTH;
+    start_row = (uint8_t) temp_start_row;
+    end_row = (uint8_t) temp_end_row;
+    if (start_row > end_row) { // If start row is greater than end row (pls dont), swap them
+        int32_t temp = start_row;
+        start_row = end_row;
+        end_row = temp;
+    }
+
+    // Initialize color
+    if (colors == NULL) {
+        fg_color = DEFAULT_FOREGROUND_COLOR;
+        bg_color = DEFAULT_BACKGROUND_COLOR;
+    }
+
+    // Null terminated string
+    if (strlen == -1) {
+        row = (uint8_t) start_row;
+        col = 0;
+        while (*s != '\0') {
+            if (col >= FRAMEBUFFER_ROW_LENGTH) {
+                col = 0;
+                row++;
+            }
+            if (row > end_row) {
+                // If out of bounds, just return
+                return;
+            }
+            if (*s == '\n') {
+                row++;
+                col = 0;
+            } else {
+                framebuffer_write(row, col, *s, fg_color, bg_color);
+                col++;
+            }
+
+            s++;
+        }
+
+        return;
+    }
+
+    // Non-null terminated string
+    row = start_row;
+    col = 0;
+    for (int32_t i = 0; i < strlen; i++) {
+        char c = s[i];
+        if (col > FRAMEBUFFER_ROW_LENGTH) {
+            col = 0;
+            row++;
+        }
+        if (row > end_row) return;
+        if (c == '\0') return;
+        if (c == '\n') {
+            row++;
+            continue;
+        }
+        if (c == '\r') {
+            col = 0; // Reset column on carriage return
+            continue;
+        }
+        // if (c == '\t') {
+        //     // Tab character, move to next tab stop
+        //     col += 4 - (col % 4); // Assuming tab size of 4 spaces
+        //     if (col >= FRAMEBUFFER_ROW_LENGTH) {
+        //         col = 0;
+        //         row++;
+        //     }
+        //     continue;
+        // }
+
+        if (colors != NULL) {
+            fg_color = colors[i * 2];
+            bg_color = colors[i * 2 + 1];
+        }
+
+        framebuffer_write(row, col, c, fg_color, bg_color);
+        col++;
+    }
+    return;
 }
