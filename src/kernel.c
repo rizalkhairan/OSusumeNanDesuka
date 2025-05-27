@@ -15,48 +15,7 @@
 #include "header/process/scheduler.h"
 // #include "header/sound/sound.h"
 
-void kernel_setup(void) {
-    load_gdt(&_gdt_gdtr);
-    pic_remap();
-    initialize_idt();
-    activate_keyboard_interrupt();
-    // scheduler_init();
-    framebuffer_clear();
-    framebuffer_set_cursor(0, 0);
-    initialize_filesystem_ext2();
-    gdt_install_tss();
-    set_tss_register();
-
-    // Allocate first 4 MiB virtual memory
-    paging_allocate_user_page_frame(&_paging_kernel_page_directory, (uint8_t*) 0);
-
-    // uint32_t bacaMelody[100000] = {0};
-    // struct EXT2DriverRequest reqmel = {
-    //     .name = "melody.bin",
-    //     .name_len = 10,
-    //     .parent_inode = 2,
-    //     .buffer_size = 100000,
-    //     .is_directory = false,
-    //     .buf = bacaMelody
-    // };
-    // uint32_t bmel = read(reqmel);
-    // int length = sizeof(bacaMelody) / sizeof(uint32_t);  // Total elements (note+duration pairs)
-    // play_melody(bacaMelody, length);
-    // for (volatile int i = 0; i < 1000000000; ++i);  // Simple delay
-    // nosound();         // Stop the sound
-    // while(true);
-
-    struct EXT2DriverRequest shell = {
-        .buf                   = (uint8_t*) 0,
-        .name                  = "shell",
-        .parent_inode          = 2,
-        .buffer_size           = 0x100000,
-        .name_len              = 5,
-        .is_directory = 0
-    };
-    // read(shell);
-
-
+void ext2_driver_test() {
     struct EXT2DriverRequest req = {
         .name = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         .name_len = 64,
@@ -159,11 +118,94 @@ void kernel_setup(void) {
     };
     uint32_t d = write(&req7);
 
+    uint32_t file5_block_count = 140 + 128 + 1;
+    struct BlockBuffer file5[file5_block_count];
+    struct EXT2DriverRequest req8 = {
+        .name = file5[0].buf + 20,
+        .name_len = 9,
+        .parent_inode = 2,
+        .buffer_size = BLOCK_SIZE * file5_block_count,
+        .is_directory = false,
+        .buf = file5[0].buf
+    };
+    char filenumber[4];
+    for (uint16_t i = 0; i < 10 ; i++) {
+        if (i == 0) {
+            filenumber[0] = (char) ((i / 1000) % 10 + '0'); 
+            filenumber[1] = (char) ((i / 100) % 10 + '0');
+            filenumber[2] = (char) ((i / 10) % 10 + '0');
+            filenumber[3] = (char) (i % 10 + '0');
+        }
+        for (uint32_t j = 0; j < file5_block_count; j++) {
+            memset(file5[j].buf, (char) (j%10) + '0', BLOCK_SIZE);
+            memcpy(file5[j].buf, "DATA BLK - XXXX   / FILE-XXXX ", 30);
+            char blocknumber[4] = {
+                (char) ((j / 1000)%10 + '0'),
+                (char) ((j / 100)%10 + '0'),
+                (char) ((j / 10)%10 + '0'),
+                (char) (j % 10 + '0')
+            };
+            memcpy(file5[j].buf + 25, filenumber, 4);
+            memcpy(file5[j].buf + 11, blocknumber, 4);
+        }
+
+
+        req8.buffer_size = BLOCK_SIZE * (138 + i);
+        if (138 + i > file5_block_count) {
+            req8.buffer_size = BLOCK_SIZE * file5_block_count;
+        }
+        int8_t e = write(&req8);
+
+        framebuffer_write(5, i, '0' + e, 0xE, 0x0);
+    }
+
+    framebuffer_write(2, 2, 'A', 0xE, 0x0);
+}
+
+void kernel_setup(void) {
+    load_gdt(&_gdt_gdtr);
+    pic_remap();
+    initialize_idt();
+    activate_keyboard_interrupt();
+    // scheduler_init();
+    framebuffer_clear();
+    framebuffer_set_cursor(0, 0);
+    initialize_filesystem_ext2();
+    gdt_install_tss();
+    set_tss_register();
+
+    // Allocate first 4 MiB virtual memory
+    paging_allocate_user_page_frame(&_paging_kernel_page_directory, (uint8_t*) 0);
+
+    // uint32_t bacaMelody[100000] = {0};
+    // struct EXT2DriverRequest reqmel = {
+    //     .name = "melody.bin",
+    //     .name_len = 10,
+    //     .parent_inode = 2,
+    //     .buffer_size = 100000,
+    //     .is_directory = false,
+    //     .buf = bacaMelody
+    // };
+    // uint32_t bmel = read(reqmel);
+    // int length = sizeof(bacaMelody) / sizeof(uint32_t);  // Total elements (note+duration pairs)
+    // play_melody(bacaMelody, length);
+    // for (volatile int i = 0; i < 1000000000; ++i);  // Simple delay
+    // nosound();         // Stop the sound
+    // while(true);
+
+    struct EXT2DriverRequest shell = {
+        .buf                   = (uint8_t*) 0,
+        .name                  = "shell",
+        .parent_inode          = 2,
+        .buffer_size           = 0x100000,
+        .name_len              = 5,
+        .is_directory = 0
+    };
+
+    ext2_driver_test();
+
     set_tss_kernel_current_stack();
     process_create_user_process(shell);
-    // process_create_user_process(request);
-    // kernel_execute_user_program((uint8_t*) 0);
-    // process_init();
+
     scheduler_init();
-    scheduler_switch_to_next_process();
 }
