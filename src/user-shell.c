@@ -1322,9 +1322,10 @@ void exec(const char* input, uint32_t length){
     syscall(18, &args.argv[0].buffer, args.argv[0].length,&retval);
     if(retval==0){
         int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
+        terminal_buffer.current_line_col = 0;
         terminal_buffer.current_line_row += row_before_path; 
         syscall(10, (uint32_t)&terminal_buffer, 0, 0);
-        syscall(6, " Create success", 10, 0xE);
+        syscall(6, "Create successful", 17, 0xE);
     } else if (retval==1){
         terminal_buffer.current_line_col = 0;
         int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
