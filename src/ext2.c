@@ -334,7 +334,14 @@ int8_t write(struct EXT2DriverRequest *request){
     }
     // Entry insertion
     int8_t entry_addition = add_directory_entry(request, &new_entry, &parent_inode);
-    if (entry_addition == 2) {
+    if (entry_addition == 2 && !request->is_directory) {
+        // Use the inode number from the entry and clear it
+        new_inode_number = new_entry.inode;
+        deallocate_node(new_entry.inode);
+        read_inode(new_entry.inode, &new_inode);
+        memset(new_inode.i_block, 0, sizeof(new_inode.i_block));
+        new_inode.i_size = request->buffer_size;
+    } else if (entry_addition == 2) {
         return 1;
     } else if (entry_addition == 1) {
         // Do nothing
@@ -355,6 +362,10 @@ int8_t write(struct EXT2DriverRequest *request){
     update_bgdt();
     update_superblock();
 
+    // Write success
+    if (entry_addition == 2 && !request->is_directory) {
+        return 1;
+    }
     return 0;
 }
 
@@ -952,6 +963,7 @@ int8_t add_directory_entry(struct EXT2DriverRequest *request, struct EXT2Directo
         entry = (struct EXT2DirectoryEntry *)(directory_entries[0].buf + offset);
 
         if (correct_request_entry(entry, request)) {
+            memcpy(dir, entry, sizeof(struct EXT2DirectoryEntry));
             return 2; // Entry already exists
         }
 
