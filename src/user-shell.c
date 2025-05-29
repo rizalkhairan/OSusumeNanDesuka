@@ -53,12 +53,6 @@ int main(void) {
     
     terminal_initialize();
     syscall(7, 0, 0, 0);
-    // execute("kill 0", 6);
-    // execute("ps", 2);
-    // execute("cp yoisaki asahina", 18);
-    // execute("exec timer", 10);
-    // execute("exec timer", 10);
-    // execute("kill 1", 6);
     while(true){
         char c;
         syscall(4, &c, 0, 0);
@@ -1312,14 +1306,8 @@ void exec(const char* input, uint32_t length){
     //     .name_len              = args.argv[0].length,
     //     .is_directory          = 0
     // };
-    /*
-    #define PROCESS_CREATE_SUCCESS                   0
-    #define PROCESS_CREATE_FAIL_MAX_PROCESS_EXCEEDED 1
-    #define PROCESS_CREATE_FAIL_INVALID_ENTRYPOINT   2
-    #define PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY    3
-    #define PROCESS_CREATE_FAIL_FS_READ_FAILURE      4*/
     uint32_t retval;
-    syscall(18, &args.argv[0].buffer, args.argv[0].length,&retval);
+    syscall(18, &args.argv[0].buffer, args.argv[0].length, &retval);
     if(retval==0){
         int row_before_path = (length + (filepath_len % FRAMEBUFFER_ROW_LENGTH) + FRAMEBUFFER_ROW_LENGTH - 1)/FRAMEBUFFER_ROW_LENGTH;
         terminal_buffer.current_line_col = 0;

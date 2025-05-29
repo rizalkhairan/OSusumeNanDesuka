@@ -137,8 +137,8 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     paging_use_page_directory(new_pd);
 
     // Load the executable
-    uint32_t retval_read = read(request);
-    if (retval_read){
+    int8_t retval_read = read(request);
+    if (retval_read!=0){
         paging_use_page_directory(current_pd);
         retcode = PROCESS_CREATE_FAIL_FS_READ_FAILURE;
         goto exit_cleanup;

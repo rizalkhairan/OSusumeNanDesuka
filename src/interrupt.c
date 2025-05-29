@@ -225,7 +225,7 @@ void syscall(struct InterruptFrame frame) {
                 .name_len              = length,
                 .is_directory          = 0
             };
-            *((int8_t*) frame.cpu.general.ecx) = process_create_user_process(requested_process);
+            *((uint32_t*) frame.cpu.general.edx) = process_create_user_process(requested_process);
                 for(uint32_t i=0;i<PROCESS_COUNT_MAX;i++){
                     if(_process_list[i].metadata.pid==process_manager_state.latest_pid){
                         struct PCBQueueItem new_process = {.pcb = &_process_list[i]};
