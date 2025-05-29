@@ -8,8 +8,6 @@
 #include "header/process/scheduler.h"
 #include "header/cmos/cmos.h"
 
-static InputBuffer terminal_buffer;
-
 void io_wait(void) {
     out(0x80, 0);
 }
@@ -128,15 +126,24 @@ void syscall(struct InterruptFrame frame) {
             break;
         case 5:
             // text output via putchar()
-            framebuffer_write(20,10, 'E', 0xE, 0xE);
+            char c = (char) frame.cpu.general.ebx;
+            uint16_t index = frame.cpu.general.ecx;
+            uint16_t color = frame.cpu.general.edx;
+            framebuffer_write(
+                index / FRAMEBUFFER_ROW_LENGTH,
+                index % FRAMEBUFFER_ROW_LENGTH,
+                c,
+                color >> 8,
+                color & 0xFF
+            );
             break;
         case 6:
             // text output via puts()
-            puts(
-                (char*) frame.cpu.general.ebx, 
-                frame.cpu.general.ecx, 
-                frame.cpu.general.edx
-            );
+            // puts(
+            //     (char*) frame.cpu.general.ebx, 
+            //     frame.cpu.general.ecx, 
+            //     frame.cpu.general.edx
+            // );
             break;
         case 7:
             keyboard_state_activate();
@@ -148,8 +155,8 @@ void syscall(struct InterruptFrame frame) {
             framebuffer_set_cursor((uint8_t) frame.cpu.general.ebx, (uint8_t) frame.cpu.general.ecx);
             break;
         case 10:
-            InputBuffer* src = (InputBuffer*) frame.cpu.general.ebx;
-            terminal_buffer = *src;
+            // InputBuffer* src = (InputBuffer*) frame.cpu.general.ebx;
+            // terminal_buffer = *src;
             break;
         case 11:
             struct EXT2Inode new_inode_1;
@@ -209,18 +216,18 @@ void syscall(struct InterruptFrame frame) {
                 .is_directory          = 0
             };
             *((int8_t*) frame.cpu.general.ecx) = process_create_user_process(requested_process);
-                for(uint32_t i=0;i<PROCESS_COUNT_MAX;i++){
-                    if(_process_list[i].metadata.pid==process_manager_state.latest_pid){
-                        struct PCBQueueItem new_process = {.pcb = &_process_list[i]};
-                        pcb_enqueue(&scheduling_queue, new_process);
-                    }
+            for(uint32_t i=0;i<PROCESS_COUNT_MAX;i++){
+                if(_process_list[i].metadata.pid==process_manager_state.latest_pid){
+                    struct PCBQueueItem new_process = {.pcb = &_process_list[i]};
+                    pcb_enqueue(&scheduling_queue, new_process);
                 }
             }
-            break;
+        }
             break;
         case 19:
             // ecx = process_destroy(ebx)
             *((bool*) frame.cpu.general.ecx) = process_destroy((uint32_t) frame.cpu.general.ebx);
+            framebuffer_clear();
             break;
         case 20:
             // play sound
@@ -244,26 +251,26 @@ void syscall(struct InterruptFrame frame) {
 //     // TODO
 // }
 
-void puts(char* buf, uint32_t count, uint8_t color) {
-    int r = terminal_buffer.current_line_row;
-    int c = terminal_buffer.current_line_col;
+// void puts(char* buf, uint32_t count, uint8_t color) {
+//     int r = terminal_buffer.current_line_row;
+//     int c = terminal_buffer.current_line_col;
 
-    for (uint32_t i = 0; i < count; i++) {
-        framebuffer_write(r, c, buf[i], color, 0x00);
-        if (++c >= FRAMEBUFFER_ROW_LENGTH) {
-            c = 0;
-            ++r;
-        }
-    }
+//     for (uint32_t i = 0; i < count; i++) {
+//         framebuffer_write(r, c, buf[i], color, 0x00);
+//         if (++c >= FRAMEBUFFER_ROW_LENGTH) {
+//             c = 0;
+//             ++r;
+//         }
+//     }
     
-    for (int i = count; i < MAX_LINE_LENGTH; ++i) {
-        framebuffer_write(r, c, ' ', 0xF, 0x0);
-        if (++c >= FRAMEBUFFER_ROW_LENGTH) {
-            c = 0;
-            ++r;
-        }
-    }
-}
+//     for (int i = count; i < MAX_LINE_LENGTH; ++i) {
+//         framebuffer_write(r, c, ' ', 0xF, 0x0);
+//         if (++c >= FRAMEBUFFER_ROW_LENGTH) {
+//             c = 0;
+//             ++r;
+//         }
+//     }
+// }
 
 /**
  * SYSCALL 13, 14, 15 HANDLERS
@@ -852,14 +859,32 @@ void print(char* s, int32_t *area, uint8_t *colors) {
         int32_t i = 0;
         for (; i < strlen; i++) {
             char c = s[i];
-            if (col > FRAMEBUFFER_ROW_LENGTH) {
+            if (col >= FRAMEBUFFER_ROW_LENGTH) {
                 col = 0;
                 row++;
             }
             if (row > end_row) break;
-            if (c == '\0') break;
+            if (c == '\0') {
+                uint8_t last_written_row = row;
+                uint8_t last_written_col = col;
+                for (; row <= end_row;) {
+                    framebuffer_write(row, col, ' ', fg_color, bg_color);
+                    col++;
+                    if (col == FRAMEBUFFER_ROW_LENGTH) {
+                        row++;
+                        col = 0;
+                    }
+                }
+                row = last_written_row;
+                col = last_written_col;
+                break;
+            }
             if (c == '\n') {
+                for (; col < FRAMEBUFFER_ROW_LENGTH; col++) {
+                    framebuffer_write(row, col, ' ', fg_color, bg_color);
+                }
                 row++;
+                col = 0;
                 continue;
             }
             if (c == '\r') {
@@ -889,8 +914,8 @@ void print(char* s, int32_t *area, uint8_t *colors) {
     }
 
     // Return the value of the value of the last row written into
-    area[0] = (int32_t) start_row;
-    area[1] = (int32_t) row; // Last row written into
+    area[3] = (int32_t) col;
+    area[4] = (int32_t) row; // Last row written into
     area[2] = (int32_t) char_written; // Number of characters written, or length of the string
     return;
 }

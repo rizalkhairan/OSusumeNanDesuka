@@ -21,7 +21,7 @@ char day_string[7][4] = {
 int main() {
     char bar[FRAMEBUFFER_ROW_LENGTH];
     uint8_t colors[FRAMEBUFFER_ROW_LENGTH * 2];
-    int32_t area[3] = {-1,-1, FRAMEBUFFER_ROW_LENGTH};  // Start row, end row, length
+    int32_t area[5] = {-1,-1, FRAMEBUFFER_ROW_LENGTH};  // Start row, end row, length
     for (uint8_t i = 0; i < FRAMEBUFFER_ROW_LENGTH; i++) {
         bar[i] = ' ';
         colors[i * 2] = 0x0F;  // White foreground

@@ -128,7 +128,7 @@ void ext2_driver_test() {
         .is_directory = false,
         .buf = file5[0].buf
     };
-    for (uint16_t i = 0; i < 30 ; i++) {
+    for (uint16_t i = 0; i < 0 ; i++) {
         char filenumber[4] = {
             (char) ((i / 1000) % 10 + '0'),
             (char) ((i / 100) % 10 + '0'),
@@ -193,7 +193,7 @@ void kernel_setup(void) {
         .is_directory = 0
     };
 
-    // ext2_driver_test();
+    ext2_driver_test();
 
     set_tss_kernel_current_stack();
     process_create_user_process(shell);

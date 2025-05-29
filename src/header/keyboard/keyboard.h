@@ -28,6 +28,11 @@
 #define KEY_LEFT   0x82
 #define KEY_RIGHT  0x83
 
+#define CTRL_KEY_UP     0x84
+#define CTRL_KEY_DOWN   0x85
+#define CTRL_KEY_LEFT   0x86
+#define CTRL_KEY_RIGHT  0x87
+
 #define KEY_RELEASE(scancode) ((scancode) + 0x80)
 ////
 

@@ -98,23 +98,42 @@ void keyboard_isr(void) {
         if (keyboard_state.read_extended_mode) {
             keyboard_state.read_extended_mode = false;
 
-            switch (scancode) {
-                case EXT_SCANCODE_UP:
-                    keyboard_state.keyboard_buffer = KEY_UP;
-                    break;
-                case EXT_SCANCODE_DOWN:
-                    keyboard_state.keyboard_buffer = KEY_DOWN;
-                    break;
-                case EXT_SCANCODE_LEFT:
-                    keyboard_state.keyboard_buffer = KEY_LEFT;
-                    break;
-                case EXT_SCANCODE_RIGHT:
-                    keyboard_state.keyboard_buffer = KEY_RIGHT;
-                    break;
-                default:
-                    keyboard_state.keyboard_buffer = 0;
+            if (keyboard_state.is_ctrl_pressed) {
+                switch (scancode) {
+                    case EXT_SCANCODE_UP:
+                        keyboard_state.keyboard_buffer = CTRL_KEY_UP;
+                        break;
+                    case EXT_SCANCODE_DOWN:
+                        keyboard_state.keyboard_buffer = CTRL_KEY_DOWN;
+                        break;
+                    case EXT_SCANCODE_LEFT:
+                        keyboard_state.keyboard_buffer = CTRL_KEY_LEFT;
+                        break;
+                    case EXT_SCANCODE_RIGHT:
+                        keyboard_state.keyboard_buffer = CTRL_KEY_RIGHT;
+                        break;
+                    default:
+                        keyboard_state.keyboard_buffer = 0;
+                }
+            } else {
+                // Handle Alt + Arrow keys
+                switch (scancode) {
+                    case EXT_SCANCODE_UP:
+                        keyboard_state.keyboard_buffer = KEY_UP; // Alt + Up
+                        break;
+                    case EXT_SCANCODE_DOWN:
+                        keyboard_state.keyboard_buffer = KEY_DOWN; // Alt + Down
+                        break;
+                    case EXT_SCANCODE_LEFT:
+                        keyboard_state.keyboard_buffer = KEY_LEFT; // Alt + Left
+                        break;
+                    case EXT_SCANCODE_RIGHT:
+                        keyboard_state.keyboard_buffer = KEY_RIGHT; // Alt + Right
+                        break;
+                    default:
+                        keyboard_state.keyboard_buffer = 0;
+                }
             }
-
             pic_ack(IRQ_KEYBOARD); 
             return;
         }
