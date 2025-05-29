@@ -15,6 +15,6 @@ OSusumeNanDesuka merupakan sebuah sistem operasi x86 32-bit protected mode denga
 Pastikan seluruh dependensi untuk sistem operasi ini sudah terinstal, kemudian gunakan perintah `make bro` untuk menjalankan sistem operasi dengan QEMU
 
 # Can It Play Bad Apple, Though?
-Yes, yes it can. Untuk mencoba fitur ini, silakan copy file 'bafc12.txt' ke folder bin, kemudian gunakan perintah `make bro` untuk menjalankan sistem operasi. Dalam shell sistem operasi, gunakan perintah `badapple` untuk memulai video. Video badapple akan dimainkan dalam frame rate 12 FPS.
+Yes, yes it can. Untuk mencoba fitur ini, silakan copy file `bafc12.txt` ke folder bin, kemudian gunakan perintah `make bro` untuk menjalankan sistem operasi. Dalam shell sistem operasi, gunakan perintah `badapple` untuk memulai video. Video badapple akan dimainkan dalam frame rate 12 FPS.
 
 # Pemanis
