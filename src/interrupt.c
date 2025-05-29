@@ -129,7 +129,16 @@ void syscall(struct InterruptFrame frame) {
             break;
         case 5:
             // text output via putchar()
-            framebuffer_write(20,10, 'E', 0xE, 0xE);
+            char c = (char) frame.cpu.general.ebx;
+            uint16_t index = frame.cpu.general.ecx;
+            uint16_t color = frame.cpu.general.edx;
+            framebuffer_write(
+                index / FRAMEBUFFER_ROW_LENGTH,
+                index % FRAMEBUFFER_ROW_LENGTH,
+                c,
+                color >> 8,
+                color & 0xFF
+            );
             break;
         case 6:
             // text output via puts()

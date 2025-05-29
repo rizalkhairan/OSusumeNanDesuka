@@ -202,7 +202,7 @@ void kernel_setup(void) {
         .is_directory = 0
     };
 
-    ext2_driver_test();
+    // ext2_driver_test();
 
     set_tss_kernel_current_stack();
     process_create_user_process(shell);
