@@ -155,6 +155,12 @@ void move_to_last_screen() { // Assumes end_screen is already calculated
     }
 
     // Scroll up such to fill the screen
+    for (uint16_t i = 0; i < terminal.line_feeds.tail - terminal.line_feeds.head; i++) {
+        scroll_down();
+        if (terminal.first_displayed_char-1 == terminal.line_feeds.positions[terminal.line_feeds.tail]){
+            break;
+        }
+    }
     for (uint8_t i = 0; i < (terminal.allocated_rows - 5); i++) {
         scroll_up();
     }
@@ -471,6 +477,7 @@ void terminal_handle_input(char c){
             add_line_to_history(command);
 
             print_path();
+            move_to_last_screen();
             break;
         case '\b':
             InputLine* current_line = &inputs.history[inputs.current_line];
@@ -971,15 +978,8 @@ void ls(const char* input, uint32_t length) {
     syscall(1, &request, &retFile, 0);
     if(request.buf != NULL && retFile == 0) {
         struct EXT2DirectoryEntry *entry = (struct EXT2DirectoryEntry*)request.buf;
-        if(entry->inode != 0) {
-            char *name = (char*)((uint8_t*)entry + sizeof(struct EXT2DirectoryEntry));
-            puts_terminal(name, entry->name_len, DEFAULT_COLOR, TERMINAL_BACKGROUND);
-            puts_terminal('\n', 1, DEFAULT_COLOR, TERMINAL_BACKGROUND);
-            syscall(5, '0' + (entry->name_len / 100) % 10, 24*terminal.allocated_columns+12, (0xe <<8) | TERMINAL_BACKGROUND);
-            syscall(5, '0' + (entry->name_len / 10) % 10, 24*terminal.allocated_columns+13, (0xe <<8) | TERMINAL_BACKGROUND);
-            syscall(5, '0' + entry->name_len % 10, 24*terminal.allocated_columns+14, (0xe <<8) | TERMINAL_BACKGROUND);
-        }
-        entry = get_next_directory_entry_shell(entry);
+        entry = get_next_directory_entry_shell(entry);  
+        entry = get_next_directory_entry_shell(entry);      
         while (entry->inode != 0) {
             char *name = get_entry_name_shell(entry);
 
